@@ -1,24 +1,24 @@
 import { Routes, Route, Link, useLocation } from 'react-router-dom'
 import { Layout, Menu } from 'antd'
-import { MessageOutlined, UploadOutlined, UnorderedListOutlined } from '@ant-design/icons'
-import ChatPage from './pages/ChatPage'
+import { UploadOutlined, UnorderedListOutlined, VideoCameraOutlined } from '@ant-design/icons'
 import FileUpload from './pages/FileUpload'
 import FileList from './pages/FileList'
+import VideoStoryboard from './pages/VideoStoryboard'
 import './App.css'
 
 const { Header, Content } = Layout
 
 const navItems = [
-  // { key: '/', icon: <MessageOutlined />, label: <Link to="/">对话</Link> },
   { key: '/', icon: <UploadOutlined />, label: <Link to="/">上传文件</Link> },
   { key: '/files', icon: <UnorderedListOutlined />, label: <Link to="/files">文件列表</Link> },
+  { key: '/life-video', icon: <VideoCameraOutlined />, label: <Link to="/life-video">视频分镜</Link> },
 ]
 
 export default function App() {
   const location = useLocation()
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
+    <Layout style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Header
         style={{
           display: 'flex',
@@ -27,6 +27,7 @@ export default function App() {
           position: 'sticky',
           top: 0,
           zIndex: 100,
+          flexShrink: 0,
         }}
       >
         <div style={{ color: '#fff', fontWeight: 600, fontSize: 16, marginRight: 32, whiteSpace: 'nowrap' }}>
@@ -40,11 +41,11 @@ export default function App() {
           style={{ flex: 1, minWidth: 0 }}
         />
       </Header>
-      <Content style={{ padding: 24 }}>
+      <Content style={{ flex: 1, overflow: 'auto', padding: 24 }}>
         <Routes>
-          {/* <Route path="/" element={<ChatPage />} /> */}
           <Route path="/" element={<FileUpload />} />
           <Route path="/files" element={<FileList />} />
+          <Route path="/life-video" element={<VideoStoryboard />} />
         </Routes>
       </Content>
     </Layout>

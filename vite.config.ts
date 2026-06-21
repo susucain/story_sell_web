@@ -8,6 +8,7 @@ export default defineConfig({
     proxy: {
       '/ai': 'http://localhost:3000',
       '/oss': 'http://localhost:3000',
+      '/video': 'http://localhost:3000',
     },
   },
 })

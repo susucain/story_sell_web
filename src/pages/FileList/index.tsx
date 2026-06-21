@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Table, Card, Typography, Button, Space, message } from 'antd'
+import { Table, Card, Typography, Button, Space, message, Image } from 'antd'
 import { UploadOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import type { ColumnsType } from 'antd/es/table'
@@ -75,6 +75,25 @@ export default function FileList() {
       dataIndex: 'fileType',
       key: 'fileType',
       width: 120,
+    },
+    {
+      title: '预览',
+      key: 'preview',
+      width: 100,
+      render: (_: unknown, record: FileRecord) => {
+        const isImage = record.fileType?.toLowerCase().startsWith('image/')
+        if (!isImage) {
+          return '-'
+        }
+        return (
+          <Image
+            src={record.url}
+            alt={record.fileName}
+            style={{ width: 60, height: 60, objectFit: 'cover' }}
+            preview={{ mask: '预览' }}
+          />
+        )
+      },
     },
     {
       title: '上传时间',

@@ -1,4 +1,4 @@
-/* Streamdown 本体用 Tailwind 类渲染；此处只做聊天区容器级微调 */
+/* GitHub-flavored Markdown styles for Streamdown */
 
 .chat-streamdown {
   text-align: left;
@@ -6,20 +6,224 @@
 }
 
 .chat-streamdown__inner {
-  /* 与气泡内正文字号协调 */
   font-size: 15px;
-  line-height: 1.6;
+  line-height: 1.7;
+  color: #1f2328;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
 }
 
-/* 段落与表格/代码块之间的呼吸感（Streamdown 块级间距由组件自带，这里补一层保险） */
-.chat-streamdown__inner :where(p + [data-streamdown='table-wrapper']),
-.chat-streamdown__inner :where(p + [data-streamdown='code-block']),
-.chat-streamdown__inner :where([data-streamdown='table-wrapper'] + p) {
-  margin-top: 0.5rem;
+/* Headings */
+.chat-streamdown__inner :where(h1, h2, h3, h4, h5, h6) {
+  margin-top: 1.2em;
+  margin-bottom: 0.5em;
+  font-weight: 600;
+  line-height: 1.25;
+  color: #1f2328;
 }
 
-/* Shiki 的 pre 也需保留换行（避免被其它全局样式影响） */
-.chat-streamdown [data-streamdown='code-block'] pre {
+.chat-streamdown__inner h1 {
+  font-size: 1.6em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid #d0d7de;
+}
+
+.chat-streamdown__inner h2 {
+  font-size: 1.35em;
+  padding-bottom: 0.25em;
+  border-bottom: 1px solid #d0d7de;
+}
+
+.chat-streamdown__inner h3 {
+  font-size: 1.15em;
+}
+
+.chat-streamdown__inner h4 {
+  font-size: 1em;
+}
+
+.chat-streamdown__inner h5 {
+  font-size: 0.875em;
+}
+
+.chat-streamdown__inner h6 {
+  font-size: 0.85em;
+  color: #656d76;
+}
+
+.chat-streamdown__inner h1:first-child,
+.chat-streamdown__inner h2:first-child,
+.chat-streamdown__inner h3:first-child {
+  margin-top: 0;
+}
+
+/* Paragraphs */
+.chat-streamdown__inner p {
+  margin-top: 0;
+  margin-bottom: 0.75em;
+}
+
+/* Links */
+.chat-streamdown__inner a {
+  color: #0969da;
+  text-decoration: none;
+}
+
+.chat-streamdown__inner a:hover {
+  text-decoration: underline;
+}
+
+/* Bold & Italic */
+.chat-streamdown__inner strong {
+  font-weight: 600;
+}
+
+.chat-streamdown__inner em {
+  font-style: italic;
+}
+
+/* Inline code */
+.chat-streamdown__inner code:not(pre code) {
+  background-color: rgba(175, 184, 193, 0.2);
+  padding: 0.2em 0.4em;
+  border-radius: 6px;
+  font-size: 85%;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+}
+
+/* Code blocks */
+.chat-streamdown__inner [data-streamdown='code-block'] {
+  margin-top: 0.75em;
+  margin-bottom: 0.75em;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #f6f8fa;
+  border: 1px solid #d0d7de;
+}
+
+.chat-streamdown__inner [data-streamdown='code-block'] pre {
   white-space: pre-wrap;
   overflow-x: auto;
+  padding: 12px 16px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+}
+
+/* Blockquote */
+.chat-streamdown__inner blockquote {
+  margin: 0 0 0.75em;
+  padding: 0 1em;
+  color: #656d76;
+  border-left: 0.25em solid #d0d7de;
+}
+
+.chat-streamdown__inner blockquote > :first-child {
+  margin-top: 0;
+}
+
+.chat-streamdown__inner blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+/* Unordered list */
+.chat-streamdown__inner ul {
+  list-style-type: disc;
+  padding-left: 2em;
+  margin-top: 0;
+  margin-bottom: 0.75em;
+}
+
+/* Ordered list */
+.chat-streamdown__inner ol {
+  list-style-type: decimal;
+  padding-left: 2em;
+  margin-top: 0;
+  margin-bottom: 0.75em;
+}
+
+.chat-streamdown__inner li {
+  margin-top: 0.25em;
+}
+
+.chat-streamdown__inner li + li {
+  margin-top: 0.25em;
+}
+
+/* Nested lists */
+.chat-streamdown__inner ul ul,
+.chat-streamdown__inner ol ol,
+.chat-streamdown__inner ul ol,
+.chat-streamdown__inner ol ul {
+  margin-top: 0.25em;
+  margin-bottom: 0;
+}
+
+/* Task list */
+.chat-streamdown__inner li:has(> input[type='checkbox']) {
+  list-style-type: none;
+  margin-left: -1.5em;
+}
+
+.chat-streamdown__inner li:has(> input[type='checkbox']) > input[type='checkbox'] {
+  margin-right: 0.5em;
+}
+
+/* Tables */
+.chat-streamdown__inner [data-streamdown='table-wrapper'] {
+  overflow-x: auto;
+  margin-top: 0.75em;
+  margin-bottom: 0.75em;
+}
+
+.chat-streamdown__inner table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 14px;
+}
+
+.chat-streamdown__inner thead th {
+  font-weight: 600;
+  background-color: #f6f8fa;
+  border-bottom: 1px solid #d0d7de;
+  padding: 6px 13px;
+  text-align: left;
+}
+
+.chat-streamdown__inner tbody td {
+  padding: 6px 13px;
+  border-bottom: 1px solid #d0d7de;
+}
+
+.chat-streamdown__inner tbody tr:nth-child(even) {
+  background-color: #f6f8fa;
+}
+
+.chat-streamdown__inner tbody tr:hover {
+  background-color: #f3f4f6;
+}
+
+/* Horizontal rule */
+.chat-streamdown__inner hr {
+  height: 0.25em;
+  padding: 0;
+  margin: 1.5em 0;
+  background-color: #d0d7de;
+  border: 0;
+  border-radius: 2px;
+}
+
+/* Images */
+.chat-streamdown__inner img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+}
+
+/* Streamdown specific spacing fixes */
+.chat-streamdown__inner :where(p + [data-streamdown='table-wrapper']),
+.chat-streamdown__inner :where(p + [data-streamdown='code-block']),
+.chat-streamdown__inner :where([data-streamdown='table-wrapper'] + p),
+.chat-streamdown__inner :where([data-streamdown='code-block'] + p) {
+  margin-top: 0.5rem;
 }

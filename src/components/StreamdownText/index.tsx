@@ -26,6 +26,7 @@ export function StreamdownText({
         parseIncompleteMarkdown
         shikiTheme={shikiTheme}
         plugins={{ mermaid, code: codePlugin }}
+        controls={{ table: false }}
         className="chat-streamdown__inner"
       >
         {children}
