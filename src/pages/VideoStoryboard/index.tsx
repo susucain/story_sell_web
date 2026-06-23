@@ -1,10 +1,10 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport, type UIMessage } from 'ai'
+import { debounce } from 'lodash-es'
 import { UploadOutlined, LinkOutlined, DeleteOutlined, SendOutlined, StopOutlined } from '@ant-design/icons'
 import { Button, Input, Image, Space, message as antdMessage, Tag, Popover } from 'antd'
-import { StreamdownText } from '../../components/StreamdownText'
-import { ToolCallDisplay } from '../../components/ToolCallDisplay'
+import { AgentMessage } from '../../components/AgentMessage'
 import './style.css'
 
 const STORAGE_KEY = 'video_storyboard_session_id'
@@ -98,9 +98,14 @@ export default function VideoStoryboard() {
   const hasUploading = images.some((img) => img.uploading)
   const canSend = status === 'ready' && !hasUploading && (prompt.trim().length > 0 || images.length > 0)
 
+  const debouncedScroll = useMemo(
+    () => debounce(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100),
+    [],
+  )
+
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+    debouncedScroll()
+  }, [messages, debouncedScroll])
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -199,39 +204,15 @@ export default function VideoStoryboard() {
             <p>上传参考图片并输入提示词，点击生成开始对话</p>
           </div>
         )}
-        {messages.map((msg, index) => (
-          <div key={msg.id ?? index} className={`storyboard-bubble storyboard-bubble--${msg.role}`}>
-            <div className="storyboard-role">
-              {msg.role === 'user' ? '你' : '助手'}
-            </div>
-            <div className="storyboard-content">
-              {msg.parts.map((part, i) =>
-                part.type === 'text' ? (
-                  <div key={i} className="storyboard-text">
-                    {msg.role === 'assistant' ? (
-                      <StreamdownText isStreaming={busy && i === msg.parts.length - 1}>
-                        {part.text}
-                      </StreamdownText>
-                    ) : (
-                      part.text
-                    )}
-                  </div>
-                ) : part.type === 'file' ? (
-                  <div key={i} className="storyboard-image">
-                    <Image
-                      src={part.url}
-                      alt="reference"
-                      style={{ maxWidth: 200, maxHeight: 200, borderRadius: 6 }}
-                      preview
-                    />
-                  </div>
-                ) : part.type.startsWith('tool-') || part.type === 'dynamic-tool' ? (
-                  <ToolCallDisplay key={i} part={part} />
-                ) : null,
-              )}
-            </div>
-          </div>
-        ))}
+        {messages.map((msg, index) => {
+          const isLast = index === messages.length - 1
+          return (
+            <AgentMessage
+              message={msg}
+              isStreaming={isLast && busy}
+            />
+          )
+        })}
         <div ref={messagesEndRef} />
       </div>
 

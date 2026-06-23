@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { createCodePlugin } from '@streamdown/code'
 import { mermaid } from '@streamdown/mermaid'
 import { Streamdown, type ThemeInput } from 'streamdown'
@@ -14,7 +15,7 @@ export type StreamdownTextProps = {
   isStreaming?: boolean
 }
 
-export function StreamdownText({
+function StreamdownTextInner({
   children,
   isStreaming = false,
 }: StreamdownTextProps) {
@@ -34,3 +35,7 @@ export function StreamdownText({
     </div>
   )
 }
+
+export const StreamdownText = memo(StreamdownTextInner, (prev, next) => {
+  return prev.children === next.children && prev.isStreaming === next.isStreaming
+})

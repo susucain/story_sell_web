@@ -1,0 +1,155 @@
+/* ===== Agent 工具步骤区 ===== */
+.agent-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+/* 单个工具调用行（不可展开，纯摘要） */
+.tool-step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  background: #f8f9fa;
+  font-size: 12px;
+  color: #555;
+  transition: background 0.15s;
+}
+
+.tool-step:hover {
+  background: #f0f1f3;
+}
+
+.tool-step--error {
+  background: #fff2f0;
+  border: 1px solid #ffccc7;
+}
+
+.tool-step__icon {
+  font-size: 13px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.tool-step__icon--done {
+  color: #52c41a;
+}
+
+.tool-step__icon--loading {
+  color: #1677ff;
+}
+
+.tool-step__icon--error {
+  color: #ff4d4f;
+}
+
+.tool-step__tool-icon {
+  font-size: 12px;
+  color: #999;
+  flex-shrink: 0;
+}
+
+.tool-step__name {
+  font-weight: 500;
+  font-size: 12px;
+  flex-shrink: 0;
+  color: #333;
+}
+
+.tool-step__summary {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: #888;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+}
+
+.tool-step__output-summary {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: #aaa;
+  white-space: nowrap;
+}
+
+.tool-step__status {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: #bbb;
+  margin-left: auto;
+}
+
+/* ===== 子 agent 任务分组 ===== */
+.sub-agent-section {
+  margin-bottom: 4px;
+  border-left: 2px solid #e8e8e8;
+  padding-left: 12px;
+}
+
+.sub-agent-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+  margin-left: 4px;
+}
+
+/* ===== 可折叠工具步骤面板 ===== */
+.collapsible-tool-steps {
+  margin-bottom: 4px;
+}
+
+.collapsible-tool-steps__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: #f0f5ff;
+  cursor: pointer;
+  user-select: none;
+  font-size: 12px;
+  color: #1677ff;
+  transition: background 0.15s;
+}
+
+.collapsible-tool-steps__header:hover {
+  background: #e6f0ff;
+}
+
+.collapsible-tool-steps__arrow {
+  font-size: 10px;
+  width: 12px;
+  flex-shrink: 0;
+  color: #999;
+}
+
+.collapsible-tool-steps__icon {
+  font-size: 12px;
+  color: #1677ff;
+  flex-shrink: 0;
+}
+
+.collapsible-tool-steps__label {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+
+.collapsible-tool-steps__count {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: #999;
+}
+
+.collapsible-tool-steps__body {
+  padding: 4px 0 0 0;
+}
