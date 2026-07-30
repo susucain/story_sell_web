@@ -283,9 +283,11 @@ function splitAssistantParts(parts: UIMessage['parts']) {
 export interface AgentMessageProps {
   message: UIMessage
   isStreaming?: boolean
+  /** 非流式状态下，对最终文本调用此函数；返回非 null 则用自定义渲染替代 StreamdownText */
+  renderFinalText?: (text: string) => React.ReactNode | null
 }
 
-export const AgentMessage = memo(function AgentMessage({ message, isStreaming = false }: AgentMessageProps) {
+export const AgentMessage = memo(function AgentMessage({ message, isStreaming = false, renderFinalText }: AgentMessageProps) {
   // user 角色
   if (message.role !== 'assistant') {
     return (
@@ -349,15 +351,23 @@ export const AgentMessage = memo(function AgentMessage({ message, isStreaming = 
           )
         })}
         {/* 最终文本（仅主 agent） */}
-        {finalTextParts.map((part, i) =>
-          part.type === 'text' ? (
+        {finalTextParts.map((part, i) => {
+          if (part.type !== 'text') return null
+          // 非流式时尝试自定义渲染（如分镜脚本卡片）
+          if (!isStreaming && renderFinalText) {
+            const custom = renderFinalText(part.text)
+            if (custom !== null && custom !== undefined) {
+              return <div key={i} className="storyboard-custom-render">{custom}</div>
+            }
+          }
+          return (
             <div key={i} className="storyboard-text">
               <StreamdownText isStreaming={isStreaming && i === lastTextIdx}>
                 {part.text}
               </StreamdownText>
             </div>
-          ) : null,
-        )}
+          )
+        })}
       </div>
     </div>
   )
@@ -366,6 +376,7 @@ export const AgentMessage = memo(function AgentMessage({ message, isStreaming = 
   if (prev.message.id !== next.message.id) return false
   if (prev.message.role !== next.message.role) return false
   if (prev.message.parts.length !== next.message.parts.length) return false
+  if (prev.renderFinalText !== next.renderFinalText) return false
   if (!next.isStreaming) return true
   return false
 })
