@@ -34,8 +34,9 @@ export const ScriptCard = memo(function ScriptCard({
   onGenerateVideo,
   generating = false,
 }: ScriptCardProps) {
-  const imageCount = assets.filter((a) => a.type === 'image').length
-  const videoCount = assets.filter((a) => a.type === 'video').length
+  const analysisAssets = assets.filter((a) => a.assetPurpose === 'analysis')
+  const imageCount = analysisAssets.filter((a) => a.assetType === 'image').length
+  const videoCount = analysisAssets.filter((a) => a.assetType === 'video').length
 
   const assetText: string[] = []
   if (imageCount > 0) assetText.push(`商品主图 ×${imageCount}`)
@@ -45,7 +46,7 @@ export const ScriptCard = memo(function ScriptCard({
     <div className="lj-script-card">
       {/* 头部 */}
       <div className="lj-script-card__header">
-        <div className="lj-script-card__version">视频分镜脚本 V1</div>
+        <div className="lj-script-card__version">视频分镜脚本 · V{parsed.version}</div>
         <h3 className="lj-script-card__title">{parsed.title}</h3>
         {parsed.description && (
           <p className="lj-script-card__desc">{parsed.description}</p>
@@ -54,37 +55,29 @@ export const ScriptCard = memo(function ScriptCard({
           {parsed.totalDuration > 0 && (
             <MetaTag icon={<ClockCircleOutlined />}>{parsed.totalDuration} 秒</MetaTag>
           )}
-          <MetaTag icon={<MobileOutlined />}>9:16 竖版</MetaTag>
-          <MetaTag icon={<AudioOutlined />}>真实口播</MetaTag>
-          <MetaTag icon={<PlayCircleOutlined />}>抖音/小红书</MetaTag>
+          <MetaTag icon={<MobileOutlined />}>{parsed.ratio} 竖版</MetaTag>
+          <MetaTag icon={<AudioOutlined />}>{parsed.style}</MetaTag>
+          <MetaTag icon={<PlayCircleOutlined />}>{parsed.platform}</MetaTag>
         </div>
       </div>
 
       {/* 镜头表格 */}
       <div className="lj-script-card__table">
         <div className="lj-shot-table">
-          <div className="lj-shot-table__head">
-            <div className="lj-shot-col lj-shot-col--num">镜头</div>
-            <div className="lj-shot-col lj-shot-col--time">时间</div>
-            <div className="lj-shot-col lj-shot-col--title">场景标题</div>
-            <div className="lj-shot-col lj-shot-col--visual">画面描述</div>
-            <div className="lj-shot-col lj-shot-col--audio">音频/字幕</div>
-          </div>
           {parsed.shots.map((shot) => (
-            <div className="lj-shot-table__row" key={shot.number}>
+            <div className="lj-shot-table__row" key={shot.shot}>
               <div className="lj-shot-col lj-shot-col--num">
-                <span className="lj-shot-num">{String(shot.number).padStart(2, '0')}</span>
+                <span className="lj-shot-num">{String(shot.shot).padStart(2, '0')}</span>
               </div>
-              <div className="lj-shot-col lj-shot-col--time">{shot.timeRange}</div>
-              <div className="lj-shot-col lj-shot-col--title">
-                <span className="lj-shot-title">{shot.title}</span>
-              </div>
-              <div className="lj-shot-col lj-shot-col--visual">
-                {shot.visualDescription}
+              <div className="lj-shot-col lj-shot-col--time">{shot.time}</div>
+              <div className="lj-shot-col lj-shot-col--scene">
+                <div className="lj-shot-title">{shot.scene}</div>
+                <div className="lj-shot-visual">{shot.visual}</div>
               </div>
               <div className="lj-shot-col lj-shot-col--audio">
-                {shot.voiceover && (
-                  <span className="lj-shot-vo">"{shot.voiceover}"</span>
+                <div className="lj-shot-audio-label">口播 / 字幕</div>
+                {shot.audio && (
+                  <span className="lj-shot-vo">"{shot.audio}"</span>
                 )}
               </div>
             </div>

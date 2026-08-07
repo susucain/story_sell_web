@@ -18,6 +18,10 @@ import {
 } from '@ant-design/icons'
 import { Image } from 'antd'
 import { StreamdownText } from '../StreamdownText'
+import { ScriptCard } from '../../pages/VideoStoryboard/ScriptCard'
+import type { ScriptVersion, AssetItem } from '../../pages/VideoStoryboard/types'
+import { toParsedStoryboard } from '../../pages/VideoStoryboard/types'
+import type { ProcessPhase, ProcessState, ProcessStatePart } from './process-types'
 import './style.css'
 
 type AnyToolPart = Extract<UIMessage['parts'][number], { type: `tool-${string}` } | { type: 'dynamic-tool' }>
@@ -186,6 +190,251 @@ function CollapsibleToolSteps({ children, total, label }: { children: React.Reac
   )
 }
 
+function useProcessState(parts: UIMessage['parts']): ProcessState | null {
+  const statePart = [...parts]
+    .reverse()
+    .find((p: any) => p.type === 'data-process-state') as ProcessStatePart | undefined
+  if (!statePart) return null
+  if (statePart.data.status === 'skipped') return null
+  return statePart.data
+}
+
+function formatDuration(ms?: number): string {
+  if (ms == null || ms < 0) return ''
+  if (ms < 1000) return `${ms}ms`
+  return `${(ms / 1000).toFixed(1)}s`
+}
+
+function CheckIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M20 6L9 17l-5-5" />
+    </svg>
+  )
+}
+
+function FileIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+    </svg>
+  )
+}
+
+/** 创作过程面板：按设计稿渲染三阶段时间线 */
+function ProcessPanel({ parts, isStreaming }: { parts: UIMessage['parts']; isStreaming?: boolean }) {
+  const [expanded, setExpanded] = useState(false)
+  const state = useProcessState(parts)
+  if (!state || state.phases.length === 0) return null
+
+  const completedPhases = state.phases.filter((p) => p.status === 'completed').length
+  const operationCount = state.phases.reduce((sum, phase) => {
+    return (
+      sum +
+      (phase.items?.length ?? 0) +
+      (phase.cards?.length ?? 0) +
+      (phase.actions?.length ?? 0)
+    )
+  }, 0)
+
+  const isRunning = state.status === 'running' || isStreaming
+
+  return (
+    <div className="process-panel">
+      <div className="process-header">
+        <div className="process-header__left">
+          <div className="process-icon">⚡</div>
+          <div>
+            <div className="process-title">本次创作过程</div>
+            <div className="process-meta">
+              {state.phases.length} 个阶段 · 共 {operationCount} 项操作
+            </div>
+          </div>
+        </div>
+        <div className="process-header__right">
+          <span className={`process-status ${isRunning ? 'running' : ''}`}>
+            {isRunning ? (
+              <>
+                <span className="pulse-dot" /> 进行中
+              </>
+            ) : (
+              <>
+                <CheckIcon className="process-status__icon" /> 创作完成
+              </>
+            )}
+          </span>
+          <button type="button" className="toggle-btn" onClick={() => setExpanded(!expanded)}>
+            {expanded ? '收起 ▲' : '展开 ▼'}
+          </button>
+        </div>
+      </div>
+
+      {expanded && (
+        <div className="process-body">
+          <div className="steps">
+            {state.phases.map((phase, index) => (
+              <ProcessPhaseView key={phase.id} phase={phase} index={index + 1} isRunning={isRunning} />
+            ))}
+            {/* <TimelineProgress completed={completedPhases} total={state.phases.length} /> */}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function TimelineProgress({ completed, total }: { completed: number; total: number }) {
+  const percent = total === 0 ? 0 : (completed / total) * 100
+  return (
+    <style>{`
+      .steps::before {
+        background: linear-gradient(to bottom, var(--pp-primary) ${percent}%, var(--pp-border) ${percent}%);
+      }
+    `}</style>
+  )
+}
+
+function ProcessPhaseView({
+  phase,
+  index,
+  isRunning,
+}: {
+  phase: ProcessPhase
+  index: number
+  isRunning: boolean
+}) {
+  const done = phase.status === 'completed'
+  const running = phase.status === 'running'
+  const duration = phase.endTime && phase.startTime ? phase.endTime - phase.startTime : undefined
+
+  return (
+    <div className={`step ${done ? 'done' : running ? 'running' : ''}`}>
+      <div className="step-marker">{done ? <CheckIcon className="step-marker__icon" /> : index}</div>
+      <div className="step-content">
+        <div className="step-header">
+          <div>
+            <div className="step-name">{phase.title}</div>
+            <div className="step-desc">{phase.description}</div>
+          </div>
+          <span className="step-time">
+            {done ? formatDuration(duration) : running ? '进行中' : '等待中'}
+          </span>
+        </div>
+
+        {phase.items && phase.items.length > 0 && (
+          <div className="step-children">
+            {phase.items.map((item) => (
+              <div className={`child-item ${item.status}`} key={item.id}>
+                {item.status === 'completed' ? (
+                  <CheckIcon className="child-icon success" />
+                ) : item.status === 'running' ? (
+                  <span className="spinner" />
+                ) : (
+                  <FileIcon className="child-icon pending" />
+                )}
+                <div className="child-body">
+                  <span className="child-title">
+                    {item.title}
+                    {item.tag && <span className="child-tag">{item.tag.text}</span>}
+                  </span>
+                  {item.description && <div className="child-sub">{item.description}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {phase.cards && phase.cards.length > 0 && (
+          <div className="capability-list">
+            {phase.cards.map((card) => (
+              <div className="capability-item" key={card.id}>
+                <div
+                  className="capability-icon"
+                  style={{ background: card.iconBg, color: card.iconColor }}
+                >
+                  {card.icon}
+                </div>
+                <div className="capability-body">
+                  <div className="capability-title">{card.title}</div>
+                  <div className="capability-sub">{card.description}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {phase.id === 'generate-script' && (
+          <GeneratePhaseBody phase={phase} isRunning={isRunning} />
+        )}
+      </div>
+    </div>
+  )
+}
+
+function GeneratePhaseBody({ phase, isRunning }: { phase: ProcessPhase; isRunning: boolean }) {
+  const actions = phase.actions ?? []
+  const outputs = phase.outputs ?? []
+  const allDone = phase.status === 'completed'
+  const anyRunning = actions.some((a) => a.status === 'running') || phase.status === 'running'
+
+  const generateAction = actions.find((a) => a.id === 'generate-script-action')
+
+  return (
+    <div className="step-children">
+      {anyRunning && outputs.length === 0 && generateAction && (
+        <div className="current-action">
+          <span className="spinner" />
+          <span>正在{generateAction.title}...</span>
+        </div>
+      )}
+
+      {(allDone || outputs.length > 0) && (
+        <>
+          {actions.map((action) => (
+            <div className={`child-item ${action.status}`} key={action.id}>
+              {action.status === 'completed' ? (
+                <CheckIcon className="child-icon success" />
+              ) : action.status === 'running' ? (
+                <span className="spinner" />
+              ) : (
+                <FileIcon className="child-icon pending" />
+              )}
+              <div className="child-body">
+                <span className="child-title">{action.title}</span>
+                {action.description && <div className="child-sub">{action.description}</div>}
+              </div>
+            </div>
+          ))}
+          {outputs.map((output, i) => (
+            <div className="output-card" key={i}>
+              <div className="output-card__title">
+                <FileIcon className="output-card__icon" />
+                {output.title}
+              </div>
+              <div className="output-tags">
+                {output.tags.map((tag, idx) => (
+                  <span className="output-tag" key={idx}>
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </>
+      )}
+
+      {anyRunning && outputs.length === 0 && (
+        <div className="generate-skeleton">
+          <div className="skeleton skeleton-block" />
+          <div className="skeleton skeleton-text" />
+          <div className="skeleton skeleton-text short" />
+        </div>
+      )}
+    </div>
+  )
+}
+
 /**
  * 拆分 assistant 消息的 parts：
  * - mainToolParts：主 agent 的工具调用（按出现顺序）
@@ -285,25 +534,64 @@ export interface AgentMessageProps {
   isStreaming?: boolean
   /** 非流式状态下，对最终文本调用此函数；返回非 null 则用自定义渲染替代 StreamdownText */
   renderFinalText?: (text: string) => React.ReactNode | null
+  /** 当前消息关联的脚本版本（优先使用）；未传入时从消息 tool/metadata 中解析 */
+  script?: ScriptVersion | null
+  /** 当前会话所有脚本版本，用于在生成脚本的消息中内嵌 ScriptCard */
+  scripts?: ScriptVersion[]
+  /** 当前会话素材，传递给 ScriptCard 显示关联素材 */
+  assets?: AssetItem[]
+  /** 是否为当前会话最后一条可见的 assistant 消息；只有这条消息才渲染创作过程条 */
+  isLatestAssistant?: boolean
+  /** 引用脚本 */
+  onQuoteScript?: (script: ScriptVersion) => void
+  /** 使用脚本生成视频 */
+  onGenerateVideo?: (scriptId?: number) => void
+  /** 视频生成中状态 */
+  generating?: boolean
 }
 
-export const AgentMessage = memo(function AgentMessage({ message, isStreaming = false, renderFinalText }: AgentMessageProps) {
+export const AgentMessage = memo(function AgentMessage({
+  message,
+  isStreaming = false,
+  renderFinalText,
+  script: explicitScript,
+  scripts = [],
+  assets = [],
+  isLatestAssistant = false,
+  onQuoteScript,
+  onGenerateVideo,
+  generating = false,
+}: AgentMessageProps) {
   // user 角色
   if (message.role !== 'assistant') {
+    const textParts = message.parts.filter((part) => part.type === 'text')
+    const fileParts = message.parts.filter((part) => part.type === 'file')
     return (
-      <div className={`storyboard-bubble storyboard-bubble--${message.role}`}>
-        <div className="storyboard-role">你</div>
-        <div className="storyboard-content">
-          {message.parts.map((part, i) =>
-            part.type === 'text' ? (
-              <div key={i} className="storyboard-text">{part.text}</div>
-            ) : part.type === 'file' ? (
-              <div key={i} className="storyboard-image">
-                <Image src={part.url} alt="reference" style={{ maxWidth: 200, maxHeight: 200, borderRadius: 6 }} preview />
+      <div className="storyboard-row storyboard-row--user">
+        <div className="storyboard-bubble storyboard-bubble--user">
+          <div className="storyboard-content">
+            {textParts.map((part, i) => (
+              <div key={`text-${i}`} className="storyboard-text">{part.text}</div>
+            ))}
+            {fileParts.length > 0 && (
+              <div className="storyboard-files">
+                {fileParts.map((part, i) => (
+                  <div key={`file-${i}`} className="storyboard-file">
+                  {(part as any).mediaType?.startsWith('video/') ? (
+                    <video src={part.url} muted className="storyboard-file__media" />
+                  ) : (
+                    <Image src={part.url} alt="reference" className="storyboard-file__media" preview />
+                  )}
+                  {(part as any).filename && (
+                    <div className="storyboard-file__name">{(part as any).filename}</div>
+                  )}
+                  </div>
+                ))}
               </div>
-            ) : null,
-          )}
+            )}
+          </div>
         </div>
+        <div className="storyboard-avatar storyboard-avatar--user">你</div>
       </div>
     )
   }
@@ -312,64 +600,79 @@ export const AgentMessage = memo(function AgentMessage({ message, isStreaming = 
   const { mainToolParts, subAgentSections, finalTextParts } = splitAssistantParts(message.parts)
   const lastTextIdx = finalTextParts.length - 1
 
+  // 优先使用外部传入的 script；否则从消息 metadata 或 tool-call 输出中解析 script_id
+  const generatedScriptId =
+    explicitScript?.id ??
+    ((message.metadata as any)?.scriptId as number | undefined) ??
+    message.parts
+      ?.filter((p: any) => isToolUIPart(p))
+      .map((p: any) => {
+        if (getToolName(p as any) !== 'generate_script') return null
+        const output = (p as any).output
+        return output && typeof output === 'object' ? output.script_id : null
+      })
+      .find((id): id is number => typeof id === 'number')
+
+  const embeddedScript = explicitScript
+    ? explicitScript
+    : generatedScriptId
+      ? scripts.find((s) => s.id === generatedScriptId) ?? null
+      : null
+
+  // 过滤掉仅包含 data-process-* / step-start 等无可见内容的 assistant 占位消息
+  const hasVisibleContent =
+    mainToolParts.length > 0 ||
+    subAgentSections.length > 0 ||
+    finalTextParts.some((p) => p.type === 'text' && (p as any).text?.trim().length > 0) ||
+    embeddedScript != null
+
+  if (!hasVisibleContent) {
+    return null
+  }
+
   return (
-    <div className="storyboard-bubble storyboard-bubble--assistant">
-      <div className="storyboard-role">助手</div>
-      <div className="storyboard-content">
-        {/* 主 agent 工具调用（可折叠） */}
-        <CollapsibleToolSteps total={mainToolParts.length} label="工具调用">
-          <div className="agent-steps">
-            {mainToolParts.map((part, i) => (
-              <ToolStep key={part.toolCallId ?? i} part={part} isStreaming={isStreaming} />
-            ))}
-          </div>
-        </CollapsibleToolSteps>
-        {/* 子 agent 任务分组（可折叠） */}
-        {subAgentSections.map((section, sectionIdx) => {
-          const subTotal = 1 + section.toolParts.length
-          const subLabel = typeof section.taskPart === 'object' && 'input' in section.taskPart
-            ? (() => {
-                const input = (section.taskPart as any).input
-                const sub = typeof input?.subagent_type === 'string' ? input.subagent_type : ''
-                const desc = typeof input?.description === 'string' ? truncate(input.description, 40) : ''
-                return sub ? `${sub}${desc ? ' · ' + desc : ''}` : undefined
-              })()
-            : undefined
-          return (
-            <CollapsibleToolSteps key={sectionIdx} total={subTotal} label={subLabel}>
-              <div className="sub-agent-section">
-                <ToolStep part={section.taskPart} isStreaming={isStreaming} />
-                {section.toolParts.length > 0 && (
-                  <div className="sub-agent-steps">
-                    {section.toolParts.map((part, i) => (
-                      <ToolStep key={part.toolCallId ?? i} part={part} isStreaming={isStreaming} />
-                    ))}
-                  </div>
-                )}
+    <>
+      <div className="storyboard-row storyboard-row--assistant">
+        <div className="storyboard-avatar storyboard-avatar--assistant"></div>
+        <div className="storyboard-bubble storyboard-bubble--assistant">
+          <div className="storyboard-content">
+            {/* 创作过程面板：只在最后一条可见 assistant 消息中展示一次 */}
+            {isLatestAssistant && <ProcessPanel parts={message.parts} isStreaming={isStreaming} />}
+
+            {/* 最终文本（仅主 agent） */}
+            {finalTextParts.map((part, i) => {
+              if (part.type !== 'text') return null
+              // 非流式时尝试自定义渲染（如分镜脚本卡片）
+              if (!isStreaming && renderFinalText) {
+                const custom = renderFinalText(part.text)
+                if (custom !== null && custom !== undefined) {
+                  return <div key={i} className="storyboard-custom-render">{custom}</div>
+                }
+              }
+              return (
+                <div key={i} className="storyboard-text">
+                  <StreamdownText isStreaming={isStreaming && i === lastTextIdx}>
+                    {part.text}
+                  </StreamdownText>
+                </div>
+              )
+            })}
+            {/* 脚本卡片：作为生成脚本消息的一部分在气泡底部内嵌展示 */}
+            {embeddedScript && !isStreaming && (
+              <div className="storyboard-embedded-card">
+                <ScriptCard
+                  parsed={toParsedStoryboard(embeddedScript)}
+                  assets={assets}
+                  onQuoteScript={() => onQuoteScript?.(embeddedScript)}
+                  onGenerateVideo={() => onGenerateVideo?.(embeddedScript.id)}
+                  generating={generating}
+                />
               </div>
-            </CollapsibleToolSteps>
-          )
-        })}
-        {/* 最终文本（仅主 agent） */}
-        {finalTextParts.map((part, i) => {
-          if (part.type !== 'text') return null
-          // 非流式时尝试自定义渲染（如分镜脚本卡片）
-          if (!isStreaming && renderFinalText) {
-            const custom = renderFinalText(part.text)
-            if (custom !== null && custom !== undefined) {
-              return <div key={i} className="storyboard-custom-render">{custom}</div>
-            }
-          }
-          return (
-            <div key={i} className="storyboard-text">
-              <StreamdownText isStreaming={isStreaming && i === lastTextIdx}>
-                {part.text}
-              </StreamdownText>
-            </div>
-          )
-        })}
+            )}
+          </div>
+        </div>
       </div>
-    </div>
+    </>
   )
 }, (prev, next) => {
   if (prev.isStreaming !== next.isStreaming) return false
@@ -377,6 +680,11 @@ export const AgentMessage = memo(function AgentMessage({ message, isStreaming = 
   if (prev.message.role !== next.message.role) return false
   if (prev.message.parts.length !== next.message.parts.length) return false
   if (prev.renderFinalText !== next.renderFinalText) return false
+  if (prev.script !== next.script) return false
+  if (prev.scripts !== next.scripts) return false
+  if (prev.assets !== next.assets) return false
+  if (prev.generating !== next.generating) return false
+  if (prev.isLatestAssistant !== next.isLatestAssistant) return false
   if (!next.isStreaming) return true
   return false
 })

@@ -1,5 +1,5 @@
 /* ============================================
-   灵剪 AI - 视频分镜页面样式
+   映语 - 视频分镜 样式
    设计：浅色主题 + 紫色主色调 + 三栏布局
    ============================================ */
 
@@ -9,12 +9,14 @@
   box-sizing: border-box;
 }
 
-.lj-app {
-  --lj-primary: #6366f1;
+html {
+  --lj-primary: #453de1;
   --lj-primary-hover: #5558e3;
   --lj-primary-bg: #eef2ff;
   --lj-primary-border: rgba(99, 102, 241, 0.25);
+  --lj-sidebar-bg: #edebfc;
   --lj-bg: #ffffff;
+  --lj-main-bg: #f5f7fb;
   --lj-bg-soft: #f9fafb;
   --lj-bg-section: #f5f5f7;
   --lj-border: #e5e7eb;
@@ -27,10 +29,13 @@
   --lj-danger: #ef4444;
   --lj-radius: 10px;
   --lj-radius-sm: 6px;
+  --lj-radius-md: 10px;
   --lj-radius-lg: 14px;
   --lj-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
   --lj-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
 
+.lj-app {
   display: flex;
   height: 100vh;
   width: 100%;
@@ -76,7 +81,7 @@
 .lj-sidebar {
   width: 260px;
   flex-shrink: 0;
-  background: var(--lj-bg-soft);
+  background: var(--lj-bg);
   border-right: 1px solid var(--lj-border);
   display: flex;
   flex-direction: column;
@@ -95,7 +100,9 @@
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  background: linear-gradient(135deg, #6366f1, #818cf8);
+  /* background: linear-gradient(135deg, #6366f1, #818cf8); */
+  background: url('@/assets/lingjian-ai-logo.jpg') no-repeat center center;
+  background-size: cover;
   color: #fff;
   display: flex;
   align-items: center;
@@ -106,7 +113,7 @@
 }
 
 .lj-sidebar__brand-name {
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
   color: var(--lj-text);
 }
@@ -122,10 +129,11 @@
 .lj-new-btn.ant-btn-primary {
   height: 38px;
   border-radius: var(--lj-radius-sm);
-  font-weight: 500;
+  font-weight: 600;
   font-size: 14px;
   background: var(--lj-primary);
   border-color: var(--lj-primary);
+  box-shadow: 0px 5px 5px 0px rgb(69 61 225 / 30%);
 }
 
 .lj-new-btn.ant-btn-primary:hover {
@@ -134,7 +142,8 @@
 }
 
 .lj-search-input.ant-input-affix-wrapper {
-  border-radius: var(--lj-radius-sm);
+  margin-top: 10px;
+  border-radius: var(--lj-radius-md);
   background: var(--lj-bg);
   border-color: var(--lj-border);
   height: 34px;
@@ -163,6 +172,20 @@
   color: var(--lj-text-tertiary);
 }
 
+.lj-session-group__title {
+  padding: 10px 12px 4px;
+  font-size: 11px;
+  color: var(--lj-text-tertiary);
+}
+
+.lj-session-item__pulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--lj-success);
+  flex-shrink: 0;
+}
+
 .lj-session-item {
   padding: 10px 12px;
   border-radius: var(--lj-radius-sm);
@@ -172,11 +195,11 @@
 }
 
 .lj-session-item:hover {
-  background: rgba(99, 102, 241, 0.06);
+  background: var(--lj-sidebar-bg);
 }
 
 .lj-session-item.active {
-  background: var(--lj-primary-bg);
+  background: var(--lj-sidebar-bg);
 }
 
 .lj-session-item.active .lj-session-item__title {
@@ -235,7 +258,7 @@
   flex-direction: column;
   overflow: hidden;
   min-width: 0;
-  background: var(--lj-bg);
+  background: var(--lj-main-bg);
 }
 
 /* 顶部状态栏 */
@@ -243,9 +266,23 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 24px;
+  padding: 12px 24px;
   border-bottom: 1px solid var(--lj-border-soft);
   flex-shrink: 0;
+}
+
+.lj-main__header-left {
+  min-width: 0;
+}
+
+.lj-main__title {
+  margin: 2px 0 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--lj-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .lj-main__breadcrumb {
@@ -316,8 +353,17 @@
 }
 
 @keyframes lj-pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.4; transform: scale(1.3); }
+
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.4;
+    transform: scale(1.3);
+  }
 }
 
 /* 记忆芯片 */
@@ -428,16 +474,14 @@
 }
 
 .lj-messages .storyboard-bubble--user {
-  align-self: flex-end;
   background: var(--lj-primary-bg);
   border: 1px solid var(--lj-primary-border);
 }
 
 .lj-messages .storyboard-bubble--assistant {
-  align-self: flex-start;
-  background: var(--lj-bg-soft);
-  border: 1px solid var(--lj-border-soft);
-  width: 100%;
+  flex: 1;
+  padding: 0;
+  min-width: 0;
   max-width: 100%;
 }
 
@@ -448,6 +492,17 @@
   margin-bottom: 8px;
   text-transform: none;
   letter-spacing: 0;
+}
+
+.lj-messages .storyboard-bubble--assistant .storyboard-text {
+  background: var(--lj-bg);
+  border: 1px solid var(--lj-border-soft);
+  border-radius: var(--lj-radius-lg);
+  padding: 14px 10px;
+}
+
+.lj-messages .storyboard-bubble--assistant .storyboard-content>div {
+  border-radius: var(--lj-radius) var(--lj-radius-lg) var(--lj-radius-lg) var(--lj-radius-lg);
 }
 
 .lj-messages .storyboard-text {
@@ -466,10 +521,78 @@
 
 /* ===== 输入区域 ===== */
 .lj-input-area {
-  border-top: 1px solid var(--lj-border-soft);
-  background: var(--lj-bg);
-  padding: 12px 24px 16px;
+  margin: 0 24px 16px;
   flex-shrink: 0;
+  position: sticky;
+  bottom: 0;
+  backdrop-filter: blur(8px);
+}
+
+.lj-input-area::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -10px;
+  height: 10px;
+  pointer-events: none;
+  background: linear-gradient(to bottom,
+      rgba(255, 255, 255, 0),
+      rgba(245, 247, 251, 0.92));
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.lj-input-composer {
+  border: 1px solid var(--lj-border);
+  border-radius: var(--lj-radius-lg);
+  padding: 10px 12px 8px;
+  background: var(--lj-bg);
+  /* box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03); */
+  box-shadow: var(--lj-shadow);
+}
+
+.lj-input-composer:focus-within {
+  border-color: #9488ee;
+  box-shadow: 0 0 0 3px rgba(91, 61, 245, 0.12);
+}
+
+.lj-reference-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  margin-bottom: 8px;
+  padding: 6px 8px 6px 10px;
+  color: var(--lj-primary);
+  background: var(--lj-primary-bg);
+  border-radius: var(--lj-radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.lj-reference-bar>span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lj-reference-bar__clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  color: var(--lj-primary);
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+
+.lj-reference-bar__clear:hover {
+  background: rgba(99, 102, 241, 0.14);
 }
 
 .lj-attached {
@@ -483,6 +606,11 @@
 .lj-attached__item {
   position: relative;
   flex-shrink: 0;
+  margin-top: 6px;
+
+  .ant-image-cover {
+    background-color: transparent;
+  }
 }
 
 .lj-attached__preview {
@@ -496,20 +624,17 @@
 
 .lj-attached__remove {
   position: absolute;
-  top: -6px;
-  right: -6px;
-  background: var(--lj-bg);
-  border-radius: 50%;
-  padding: 2px;
-  font-size: 13px;
-  color: var(--lj-danger);
+  top:-4px;
+  right: -4px;
+  font-size: 12px;
+  color: var(--lj-text-tertiary);
   cursor: pointer;
   box-shadow: var(--lj-shadow);
   z-index: 1;
 }
 
 .lj-attached__remove:hover {
-  color: #ff7875;
+  color: var(--lj-text-secondary);
 }
 
 .lj-attached__tag {
@@ -524,50 +649,99 @@
 
 .lj-input-row {
   display: flex;
-  align-items: flex-end;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lj-input-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 8px;
 }
 
 .lj-input-tools {
   display: flex;
-  gap: 2px;
+  align-items: center;
+  gap: 4px;
   flex-shrink: 0;
-  padding-bottom: 4px;
 }
 
-.lj-tool-btn.ant-btn {
+.lj-text-btn {
+  border: none;
+  background: transparent;
   color: var(--lj-text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 8px;
   border-radius: var(--lj-radius-sm);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: inherit;
+  transition: color 0.15s, background 0.15s;
 }
 
-.lj-tool-btn.ant-btn:hover {
+.lj-text-btn:hover:not(:disabled) {
   color: var(--lj-primary);
   background: var(--lj-primary-bg);
+}
+
+.lj-text-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.lj-icon-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--lj-text-secondary);
+  font-size: 16px;
+  cursor: pointer;
+  border-radius: var(--lj-radius-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+  transition: color 0.15s, background 0.15s;
+}
+
+.lj-icon-btn:hover:not(:disabled) {
+  color: var(--lj-primary);
+  background: var(--lj-primary-bg);
+}
+
+.lj-icon-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .lj-textarea.ant-input {
   flex: 1;
   resize: none;
-  border-radius: var(--lj-radius) !important;
-  padding: 8px 14px !important;
-  border: 1px solid var(--lj-border) !important;
+  border-radius: var(--lj-radius-sm) !important;
+  padding: 6px 2px !important;
+  border: 0 !important;
+  box-shadow: none !important;
   font-size: 14px;
   line-height: 1.5;
 }
 
 .lj-textarea.ant-input:focus {
-  border-color: var(--lj-primary) !important;
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1) !important;
+  box-shadow: none !important;
 }
 
 .lj-send-btn {
   flex-shrink: 0;
-  padding-bottom: 4px;
 }
 
 .lj-send-btn .ant-btn-primary {
   background: var(--lj-primary);
   border-color: var(--lj-primary);
+  color: var(--lj-bg);
+  font-weight: 600;
 }
 
 .lj-send-btn .ant-btn-primary:hover:not(:disabled) {
@@ -665,24 +839,10 @@
   font-size: 13px;
 }
 
-.lj-shot-table__head {
-  display: grid;
-  grid-template-columns: 50px 70px 1.2fr 2fr 1.5fr;
-  gap: 0;
-  background: var(--lj-bg-section);
-  border-bottom: 1px solid var(--lj-border);
-  font-weight: 600;
-  font-size: 12px;
-  color: var(--lj-text-secondary);
-}
-
-.lj-shot-table__head .lj-shot-col {
-  padding: 10px 12px;
-}
-
 .lj-shot-table__row {
   display: grid;
-  grid-template-columns: 50px 70px 1.2fr 2fr 1.5fr;
+  grid-template-columns: 44px 76px 1.6fr 1.2fr;
+  gap: 12px;
   border-bottom: 1px solid var(--lj-border-soft);
   transition: background 0.15s;
 }
@@ -696,7 +856,7 @@
 }
 
 .lj-shot-col {
-  padding: 12px;
+  padding: 14px 4px;
   font-size: 13px;
   line-height: 1.5;
   color: var(--lj-text-secondary);
@@ -710,16 +870,10 @@
 }
 
 .lj-shot-num {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: var(--lj-primary-bg);
   color: var(--lj-primary);
-  font-size: 11px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
   flex-shrink: 0;
 }
 
@@ -730,21 +884,24 @@
   white-space: nowrap;
 }
 
-.lj-shot-col--title {
-  font-weight: 500;
-  color: var(--lj-text);
-}
-
 .lj-shot-title {
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--lj-text);
+  line-height: 1.5;
 }
 
-.lj-shot-col--visual {
+.lj-shot-visual {
+  margin-top: 2px;
   color: var(--lj-text-secondary);
   font-size: 12px;
   line-height: 1.6;
+}
+
+.lj-shot-audio-label {
+  font-size: 11px;
+  color: var(--lj-text-tertiary);
+  margin-bottom: 2px;
 }
 
 .lj-shot-col--audio {
@@ -807,13 +964,14 @@
 
 .lj-right-panel__tabs {
   display: flex;
+  gap: 20px;
+  padding: 0 16px;
   border-bottom: 1px solid var(--lj-border-soft);
   flex-shrink: 0;
 }
 
 .lj-tab {
-  flex: 1;
-  padding: 12px 8px;
+  padding: 12px 0;
   border: none;
   background: transparent;
   cursor: pointer;
@@ -823,8 +981,7 @@
   transition: all 0.15s;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 4px;
+  gap: 6px;
   border-bottom: 2px solid transparent;
   font-family: inherit;
 }
@@ -836,23 +993,16 @@
 .lj-tab.active {
   color: var(--lj-primary);
   border-bottom-color: var(--lj-primary);
-}
-
-.lj-tab .anticon {
-  font-size: 13px;
+  font-weight: 600;
 }
 
 .lj-tab-count {
-  font-size: 11px;
-  background: var(--lj-bg-section);
+  font-size: 12px;
   color: var(--lj-text-tertiary);
-  padding: 0 5px;
-  border-radius: 8px;
-  line-height: 16px;
+  font-weight: 400;
 }
 
 .lj-tab.active .lj-tab-count {
-  background: var(--lj-primary-bg);
   color: var(--lj-primary);
 }
 
@@ -913,6 +1063,43 @@
 .lj-empty-sub {
   font-size: 12px;
   color: var(--lj-text-tertiary);
+}
+
+/* 视频任务空状态卡片 */
+.lj-video-empty {
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
+  border-radius: var(--lj-radius);
+  padding: 16px;
+}
+
+.lj-video-empty__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--lj-text);
+}
+
+.lj-video-empty__desc {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--lj-text-secondary);
+  line-height: 1.6;
+}
+
+.lj-video-empty__bar {
+  margin-top: 12px;
+  height: 6px;
+  border-radius: 3px;
+  background: #dbeafe;
+  overflow: hidden;
+}
+
+.lj-video-empty__bar span {
+  display: block;
+  width: 20%;
+  height: 100%;
+  border-radius: 3px;
+  background: #06b6d4;
 }
 
 /* 资产卡片 */
@@ -1377,4 +1564,168 @@
   .lj-vp__content {
     flex-direction: column;
   }
+}
+
+/* ===== 添加素材弹窗 ===== */
+.lj-file-modal .ant-modal-content {
+  padding: 40px 48px 48px;
+  border-radius: 32px;
+  background: #ffffff;
+  box-shadow: 0 20px 56px rgba(64, 91, 172, 0.18);
+  overflow: hidden;
+}
+
+.lj-file-modal .ant-modal-header {
+  margin-bottom: 32px;
+  border-bottom: none;
+  background: transparent;
+  padding-bottom: 0;
+}
+
+.lj-file-modal .ant-modal-title {
+  font-weight: 600;
+  font-size: 18px;
+  line-height: 1.25;
+  color: #151821;
+}
+
+.lj-file-modal .ant-modal-close {
+  top: 40px;
+  right: 40px;
+  width: 32px;
+  height: 32px;
+  color: #1d222b;
+  font-size: 26px;
+}
+
+.lj-file-modal .ant-modal-close:hover {
+  color: #5b3df5;
+  background: transparent;
+}
+
+.lj-file-modal .ant-tabs-nav {
+  margin: 0 -24px;
+  padding: 0 24px;
+}
+
+.lj-file-modal .ant-tabs-nav-list {
+  width: 100%;
+}
+
+.lj-file-modal .ant-tabs-tab {
+  flex: 1;
+  justify-content: center;
+  margin: 0;
+  color: #474b54;
+  font-size: 16px;
+  line-height: 1.4;
+  padding: 0 0 24px;
+}
+
+.lj-file-modal .ant-tabs-tab+.ant-tabs-tab {
+  margin-left: 0;
+}
+
+.lj-file-modal .ant-tabs-tab:hover {
+  color: var(--lj-primary);
+}
+
+.lj-file-modal .ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: var(--lj-primary);
+  font-weight: 600;
+}
+
+.lj-file-modal .ant-tabs-ink-bar {
+  background: var(--lj-primary);
+  height: 4px;
+  border-radius: 4px;
+}
+
+.lj-file-modal .ant-tabs-nav::before {
+  border-bottom-color: #ececf2;
+}
+
+.lj-file-modal .ant-tabs-content-holder {
+  padding-top: 40px;
+}
+
+.lj-upload-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 232px;
+  gap: 12px;
+  padding: 32px 24px;
+  border: 2px dashed #aaa6ed;
+  border-radius: 28px;
+  background: #ffffff;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.lj-upload-zone:hover {
+  border-color: var(--lj-primary);
+  background: #faf9ff;
+}
+
+.lj-upload-zone__icon {
+  font-size: 48px;
+  color: var(--lj-primary);
+  line-height: 1;
+}
+
+.lj-upload-zone__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #171b24;
+}
+
+.lj-upload-zone__hint {
+  font-size: 14px;
+  color: #53565e;
+}
+
+.lj-url-form {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+  padding: 0 8px 8px;
+}
+
+.lj-url-form .ant-input {
+  height: 60px;
+  border-radius: 30px;
+  background: #f2f3fb;
+  border-color: transparent;
+  padding: 0 28px;
+  font-size: 14px;
+  color: #30333b;
+}
+
+.lj-url-form .ant-input::placeholder {
+  color: #6c6f78;
+}
+
+.lj-url-form .ant-input:focus,
+.lj-url-form .ant-input-focused {
+  border-color: #9488ee;
+  box-shadow: 0 0 0 3px rgba(91, 61, 245, 0.12);
+}
+
+.lj-url-form .ant-btn-primary {
+  height: 48px;
+  /* background: #5b3df5; */
+  background: var(--lj-primary);
+  border-color: #5b3df5;
+  border-radius: 24px;
+  font-weight: 600;
+  color: #fff;
+  font-size: 16px;
+  box-shadow: 0 12px 24px rgba(91, 61, 245, 0.24);
+}
+
+.lj-url-form .ant-btn-primary:hover:not(:disabled) {
+  background: #482ccf;
+  border-color: #482ccf;
 }

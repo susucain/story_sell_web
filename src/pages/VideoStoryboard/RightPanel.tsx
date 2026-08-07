@@ -1,14 +1,16 @@
 import { memo, useState } from 'react'
-import { Button, Tag, Progress } from 'antd'
+import { Button, Tag, Progress, Popconfirm } from 'antd'
 import {
   PlusOutlined,
   FileTextOutlined,
   VideoCameraOutlined,
   PictureOutlined,
+  LinkOutlined,
   CheckCircleFilled,
   ClockCircleOutlined,
   LoadingOutlined,
   ExclamationCircleOutlined,
+  DeleteOutlined,
 } from '@ant-design/icons'
 import type { AssetItem, ScriptVersion, VideoTaskItem } from './types'
 
@@ -16,12 +18,17 @@ interface RightPanelProps {
   assets: AssetItem[]
   scripts: ScriptVersion[]
   videos: VideoTaskItem[]
+  currentScriptId?: number
+  activeTab: TabKey
+  onTabChange: (tab: TabKey) => void
   onAddAsset?: () => void
+  onAddUrl?: () => void
+  onDeleteAsset?: (asset: AssetItem) => void
   onSelectScript?: (script: ScriptVersion) => void
   onSelectVideo?: (video: VideoTaskItem) => void
 }
 
-type TabKey = 'assets' | 'scripts' | 'videos'
+export type TabKey = 'assets' | 'scripts' | 'videos'
 
 function statusMeta(status: string): { text: string; color: string; icon: React.ReactNode } {
   switch (status) {
@@ -35,6 +42,19 @@ function statusMeta(status: string): { text: string; color: string; icon: React.
       return { text: '生成失败', color: '#ef4444', icon: <ExclamationCircleOutlined /> }
     default:
       return { text: status, color: '#9ca3af', icon: <ClockCircleOutlined /> }
+  }
+}
+
+function assetStatusText(status: string): string {
+  switch (status) {
+    case 'parsed':
+      return '已解析'
+    case 'pending':
+      return '待解析'
+    case 'failed':
+      return '解析失败'
+    default:
+      return status
   }
 }
 
@@ -54,11 +74,18 @@ export const RightPanel = memo(function RightPanel({
   assets,
   scripts,
   videos,
+  currentScriptId,
+  activeTab: tab,
+  onTabChange,
   onAddAsset,
+  onAddUrl,
+  onDeleteAsset,
   onSelectScript,
   onSelectVideo,
 }: RightPanelProps) {
-  const [tab, setTab] = useState<TabKey>('assets')
+  const [showAllScripts, setShowAllScripts] = useState(false)
+
+  const displayedScripts = showAllScripts ? scripts : scripts.slice(0, 3)
 
   return (
     <div className="lj-right-panel">
@@ -66,21 +93,21 @@ export const RightPanel = memo(function RightPanel({
       <div className="lj-right-panel__tabs">
         <button
           className={`lj-tab ${tab === 'assets' ? 'active' : ''}`}
-          onClick={() => setTab('assets')}
+          onClick={() => onTabChange('assets')}
         >
-          <PictureOutlined /> 素材 <span className="lj-tab-count">{assets.length}</span>
+          素材 <span className="lj-tab-count">{assets.length}</span>
         </button>
         <button
           className={`lj-tab ${tab === 'scripts' ? 'active' : ''}`}
-          onClick={() => setTab('scripts')}
+          onClick={() => onTabChange('scripts')}
         >
-          <FileTextOutlined /> 脚本 <span className="lj-tab-count">{scripts.length}</span>
+          脚本 <span className="lj-tab-count">{scripts.length}</span>
         </button>
         <button
           className={`lj-tab ${tab === 'videos' ? 'active' : ''}`}
-          onClick={() => setTab('videos')}
+          onClick={() => onTabChange('videos')}
         >
-          <VideoCameraOutlined /> 视频 <span className="lj-tab-count">{videos.length}</span>
+          视频 <span className="lj-tab-count">{videos.length}</span>
         </button>
       </div>
 
@@ -89,10 +116,12 @@ export const RightPanel = memo(function RightPanel({
         {tab === 'assets' && (
           <div className="lj-panel-section">
             <div className="lj-panel-section__head">
-              <span className="lj-panel-section__title">当前素材</span>
-              <button className="lj-link-btn" onClick={onAddAsset}>
-                <PlusOutlined /> 添加素材
-              </button>
+              <span className="lj-panel-section__title">本轮素材</span>
+              <div>
+                <button className="lj-link-btn" onClick={onAddAsset}>
+                  <PlusOutlined /> 添加素材
+                </button>
+              </div>
             </div>
             {assets.length === 0 ? (
               <div className="lj-empty-hint">
@@ -104,21 +133,44 @@ export const RightPanel = memo(function RightPanel({
                 {assets.map((asset) => (
                   <div className="lj-asset-card" key={asset.id}>
                     <div className="lj-asset-card__thumb">
-                      {asset.type === 'video' ? (
+                      {asset.assetType === 'video' ? (
                         <video src={asset.url} muted />
                       ) : (
-                        <img src={asset.url} alt={asset.label} />
+                        <img src={asset.thumbnailUrl || asset.url} alt={asset.name} />
                       )}
                       <span className="lj-asset-card__type">
-                        {asset.type === 'video' ? <VideoCameraOutlined /> : <PictureOutlined />}
+                        {asset.assetType === 'video' ? <VideoCameraOutlined /> : asset.assetType === 'url' ? <LinkOutlined /> : <PictureOutlined />}
                       </span>
                     </div>
                     <div className="lj-asset-card__info">
-                      <div className="lj-asset-card__label">{asset.label}</div>
+                      <div className="lj-asset-card__label">{asset.name}</div>
                       <div className="lj-asset-card__status">
-                        <CheckCircleFilled style={{ color: '#10b981' }} /> {asset.status}
+                        {asset.status === 'parsed' ? (
+                          <CheckCircleFilled style={{ color: '#10b981' }} />
+                        ) : asset.status === 'failed' ? (
+                          <ExclamationCircleOutlined style={{ color: '#ef4444' }} />
+                        ) : (
+                          <LoadingOutlined style={{ color: '#6366f1' }} />
+                        )}{' '}
+                        {assetStatusText(asset.status)}
                       </div>
                     </div>
+                    {onDeleteAsset && (
+                      <Popconfirm
+                        title="删除素材"
+                        description="确定要删除这个素材吗？"
+                        onConfirm={() => onDeleteAsset(asset)}
+                        okText="删除"
+                        cancelText="取消"
+                      >
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={<DeleteOutlined />}
+                          className="lj-asset-card__delete"
+                        />
+                      </Popconfirm>
+                    )}
                   </div>
                 ))}
               </div>
@@ -131,7 +183,11 @@ export const RightPanel = memo(function RightPanel({
           <div className="lj-panel-section">
             <div className="lj-panel-section__head">
               <span className="lj-panel-section__title">脚本版本</span>
-              {scripts.length > 1 && <button className="lj-link-btn">查看全部</button>}
+              {scripts.length > 3 && (
+                <button className="lj-link-btn" onClick={() => setShowAllScripts(!showAllScripts)}>
+                  {showAllScripts ? '收起' : '查看全部'}
+                </button>
+              )}
             </div>
             {scripts.length === 0 ? (
               <div className="lj-empty-hint">
@@ -140,22 +196,26 @@ export const RightPanel = memo(function RightPanel({
               </div>
             ) : (
               <div className="lj-script-list">
-                {scripts.map((script) => (
-                  <div
-                    className="lj-script-version"
-                    key={script.id}
-                    onClick={() => onSelectScript?.(script)}
-                  >
-                    <div className="lj-script-version__badge">{script.version}</div>
-                    <div className="lj-script-version__body">
-                      <div className="lj-script-version__title">{script.title}</div>
-                      <div className="lj-script-version__meta">
-                        {script.shotCount} 个镜头 ·{' '}
-                        {script.hasVideo ? '已生成视频' : '尚未生成视频'}
+                {displayedScripts.map((script) => {
+                  const isCurrent = script.id === currentScriptId
+                  return (
+                    <div
+                      className={`lj-script-version ${isCurrent ? 'current' : ''}`}
+                      key={script.id}
+                      onClick={() => onSelectScript?.(script)}
+                    >
+                      <div className="lj-script-version__badge">V{script.version}</div>
+                      <div className="lj-script-version__body">
+                        <div className="lj-script-version__title">{script.title}</div>
+                        <div className="lj-script-version__meta">
+                          {script.shots.length} 个镜头 ·{' '}
+                          {script.status === 'used_for_video' ? '已生成视频' : '尚未生成视频'}
+                        </div>
                       </div>
+                      {isCurrent && <span className="lj-script-version__current">当前</span>}
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>
@@ -168,10 +228,14 @@ export const RightPanel = memo(function RightPanel({
               <span className="lj-panel-section__title">视频任务</span>
             </div>
             {videos.length === 0 ? (
-              <div className="lj-empty-hint">
-                <VideoCameraOutlined className="lj-empty-icon" />
-                <p>等待发起生成</p>
-                <span className="lj-empty-sub">引用脚本并补充达人素材，可生成 9:16 成片</span>
+              <div className="lj-video-empty">
+                <div className="lj-video-empty__title">等待发起生成</div>
+                <div className="lj-video-empty__desc">
+                  {scripts.length > 0
+                    ? `引用 V${Math.max(...scripts.map((s) => s.version))} 并补充达人素材，可生成 9:16 成片。`
+                    : '引用脚本并补充达人素材，可生成 9:16 成片。'}
+                </div>
+                <div className="lj-video-empty__bar"><span /></div>
               </div>
             ) : (
               <div className="lj-video-task-list">

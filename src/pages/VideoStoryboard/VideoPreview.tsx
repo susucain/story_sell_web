@@ -18,10 +18,10 @@ interface VideoPreviewProps {
 
 /** 根据镜头位置推断营销标签 */
 function shotTag(shot: StoryboardShot, total: number): { text: string; color: string } {
-  if (shot.number === 1) return { text: '钩子', color: '#6366f1' }
-  if (shot.number === total) return { text: '转化', color: '#f59e0b' }
+  if (shot.shot === 1) return { text: '钩子', color: '#6366f1' }
+  if (shot.shot === total) return { text: '转化', color: '#f59e0b' }
   // 中间镜头交替 卖点/证明
-  const mid = shot.number - 2
+  const mid = shot.shot - 2
   return mid % 2 === 0
     ? { text: '卖点', color: '#10b981' }
     : { text: '证明', color: '#14b8a6' }
@@ -43,6 +43,7 @@ export const VideoPreview = memo(function VideoPreview({
   const [selectedShot, setSelectedShot] = useState<StoryboardShot | null>(
     parsed?.shots[0] ?? null,
   )
+  const selectedVersion = parsed?.version ?? 1
   const [editText, setEditText] = useState('')
   const videoRef = useRef<HTMLVideoElement>(null)
   const [currentTime, setCurrentTime] = useState(0)
@@ -60,7 +61,7 @@ export const VideoPreview = memo(function VideoPreview({
 
   /** 判断某镜头是否正在播放 */
   function isShotActive(shot: StoryboardShot): boolean {
-    const nums = shot.timeRange.match(/\d+/g)
+    const nums = shot.time.match(/\d+/g)
     if (!nums || nums.length < 2) return false
     const start = parseInt(nums[0], 10)
     const end = parseInt(nums[1], 10)
@@ -119,7 +120,7 @@ export const VideoPreview = memo(function VideoPreview({
             <Tag color="success" className="lj-status-tag">
               <CheckCircleFilled /> 生成成功
             </Tag>
-            <Tag className="lj-status-tag">基于脚本 V1</Tag>
+            <Tag className="lj-status-tag">基于脚本 V{selectedVersion}</Tag>
             <Tag className="lj-status-tag">
               使用 {parsed?.shots.length ?? 0} 项素材
             </Tag>
@@ -144,18 +145,18 @@ export const VideoPreview = memo(function VideoPreview({
           <div className="lj-vp__shots">
             {shots.map((shot) => {
               const tag = shotTag(shot, total)
-              const active = selectedShot?.number === shot.number
+              const active = selectedShot?.shot === shot.shot
               const playing = isShotActive(shot)
               return (
                 <div
                   className={`lj-vp-shot ${active ? 'active' : ''} ${playing ? 'playing' : ''}`}
-                  key={shot.number}
+                  key={shot.shot}
                   onClick={() => handleShotClick(shot)}
                 >
-                  <div className="lj-vp-shot__time">{shot.timeRange}</div>
+                  <div className="lj-vp-shot__time">{shot.time}</div>
                   <div className="lj-vp-shot__body">
                     <div className="lj-vp-shot__title-row">
-                      <span className="lj-vp-shot__title">{shot.title}</span>
+                      <span className="lj-vp-shot__title">{shot.scene}</span>
                       <Tag
                         style={{
                           color: tag.color,
@@ -171,7 +172,7 @@ export const VideoPreview = memo(function VideoPreview({
                         {tag.text}
                       </Tag>
                     </div>
-                    <div className="lj-vp-shot__desc">{shot.visualDescription}</div>
+                    <div className="lj-vp-shot__desc">{shot.visual}</div>
                   </div>
                 </div>
               )
@@ -184,7 +185,7 @@ export const VideoPreview = memo(function VideoPreview({
               <div className="lj-vp-edit__head">
                 <ScissorOutlined />
                 <span>
-                  优化镜头 {selectedShot.number} · {selectedShot.title}
+                  优化镜头 {selectedShot.shot} · {selectedShot.scene}
                 </span>
               </div>
               <Input.TextArea
