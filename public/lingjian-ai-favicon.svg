@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 1860 1860">
+  <defs>
+    <linearGradient id="background" x1="190" y1="1510" x2="1710" y2="310" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#08B9EC"/>
+      <stop offset=".52" stop-color="#3B65E9"/>
+      <stop offset="1" stop-color="#9B0DF2"/>
+    </linearGradient>
+    <linearGradient id="lensArc" x1="696" y1="1282" x2="1116" y2="930" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5C7AE8"/>
+      <stop offset=".55" stop-color="#6080E9"/>
+      <stop offset="1" stop-color="#A45EF2"/>
+    </linearGradient>
+    <filter id="starGlow" x="-70%" y="-70%" width="240%" height="240%">
+      <feGaussianBlur stdDeviation="30"/>
+    </filter>
+  </defs>
+
+  <circle cx="930" cy="930" r="930" fill="url(#background)"/>
+  <g transform="translate(930 930) scale(1.12) translate(-930 -930) translate(44 -4)">
+    <g fill="#fff">
+      <circle cx="704" cy="626" r="190"/>
+      <circle cx="1100" cy="680" r="160"/>
+      <path d="M370 840h778c39 0 70 31 70 70v92l185-102v386l-185-102v78c0 39-31 70-70 70H444c-39 0-70-31-70-70V910c0-39 31-70 70-70Z"/>
+      <path d="M671 789h65v84h-65zM1066 807h65v66h-65z"/>
+    </g>
+    <circle cx="820" cy="1107" r="180" fill="none" stroke="url(#lensArc)" stroke-width="26"/>
+    <path fill="#B7CDFE" opacity=".72" filter="url(#starGlow)" d="M820 984c8 85 35 113 120 123-85 8-112 36-120 123-8-87-35-115-120-123 85-10 112-38 120-123Z"/>
+    <path fill="#fff" d="M820 984c8 85 35 113 120 123-85 8-112 36-120 123-8-87-35-115-120-123 85-10 112-38 120-123Z"/>
+  </g>
+</svg>

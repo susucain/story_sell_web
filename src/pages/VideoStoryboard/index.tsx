@@ -1,9 +1,7 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport, type UIMessage, type ChatTransport, getToolName, isToolUIPart } from 'ai'
-import { debounce } from 'lodash-es'
 import {
-  DeleteOutlined,
   SendOutlined,
   PlusOutlined,
   CloseOutlined,
@@ -19,7 +17,6 @@ import {
   Input,
   Image,
   message as antdMessage,
-  Tag,
   Modal,
   Tabs,
   Tooltip,
@@ -33,7 +30,6 @@ import {
   fetchSessions,
   fetchHistory,
   fetchAssets,
-  createAsset,
   deleteAsset,
   fetchScripts,
   generateVideo,
@@ -44,6 +40,8 @@ import './style.css'
 
 const STORAGE_KEY = 'video_storyboard_session_id'
 const FALLBACK_USER_ID = 1
+const SESSION_PAGE_SIZE = 20
+const CHAT_UPDATE_THROTTLE_MS = 80
 
 function getOrCreateSessionId(): string {
   let sessionId = localStorage.getItem(STORAGE_KEY)
@@ -64,7 +62,7 @@ class LatestMessageOnlyTransport extends DefaultChatTransport<UIMessage> {
     return super.sendMessages({
       ...rest,
       messages: latestMessage ? [latestMessage] : [],
-    } as any)
+    })
   }
 }
 
@@ -135,24 +133,34 @@ interface Metadata {
   scriptId?: number
 }
 
+function readRecord(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : '未知错误'
+}
+
 /** 从 assistant 消息中解析出生成的 script_id */
 function getGeneratedScriptIdFromMessage(message: UIMessage<Metadata>): number | undefined {
   if (message.role !== 'assistant') return undefined
-  const fromMetadata = (message.metadata?.scriptId as number | undefined)
+  const fromMetadata = message.metadata?.scriptId
   if (typeof fromMetadata === 'number') return fromMetadata
-  return message.parts
-    ?.filter((p: any) => isToolUIPart(p))
-    .map((p: any) => {
-      if (getToolName(p as any) !== 'generate_script') return null
-      const output = (p as any).output
-      return output && typeof output === 'object' ? output.script_id : null
-    })
-    .find((id): id is number => typeof id === 'number')
+  for (const part of message.parts) {
+    if (!isToolUIPart(part) || getToolName(part) !== 'generate_script') continue
+    const scriptId = readRecord('output' in part ? part.output : undefined)?.script_id
+    if (typeof scriptId === 'number') return scriptId
+  }
+  return undefined
 }
 
 export default function VideoStoryboard() {
   const [sessionId, setSessionId] = useState(() => getOrCreateSessionId())
   const [sessions, setSessions] = useState<SessionSummary[]>([])
+  const [sessionsHasMore, setSessionsHasMore] = useState(false)
+  const [sessionsLoading, setSessionsLoading] = useState(false)
   const [images, setImages] = useState<UploadedImage[]>([])
   const [prompt, setPrompt] = useState('')
   const [imageUrlInput, setImageUrlInput] = useState('')
@@ -169,15 +177,44 @@ export default function VideoStoryboard() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // ===== 会话列表 =====
+  // ===== 会话列表（分页：默认一页 7 条，滚动到底部加载下一页） =====
   const loadSessions = useCallback(() => {
-    fetchSessions(FALLBACK_USER_ID)
-      .then((data) => setSessions(data))
-      .catch(() => {})
+    setSessionsLoading(true)
+    fetchSessions(FALLBACK_USER_ID, 1, SESSION_PAGE_SIZE)
+      .then((data) => {
+        setSessions(data.items)
+        setSessionsHasMore(data.hasMore)
+      })
+      .catch(() => { })
+      .finally(() => setSessionsLoading(false))
   }, [])
 
+  const loadMoreSessions = useCallback(() => {
+    if (sessionsLoading || !sessionsHasMore) return
+    setSessionsLoading(true)
+    const nextPage = Math.floor(sessions.length / SESSION_PAGE_SIZE) + 1
+    fetchSessions(FALLBACK_USER_ID, nextPage, SESSION_PAGE_SIZE)
+      .then((data) => {
+        setSessions((prev) => {
+          const seen = new Set(prev.map((s) => s.sessionId))
+          return [...prev, ...data.items.filter((s) => !seen.has(s.sessionId))]
+        })
+        setSessionsHasMore(data.hasMore)
+      })
+      .catch(() => { })
+      .finally(() => setSessionsLoading(false))
+  }, [sessionsLoading, sessionsHasMore, sessions.length])
+
+  function handleSessionListScroll(e: React.UIEvent<HTMLDivElement>) {
+    const el = e.currentTarget
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 40) {
+      loadMoreSessions()
+    }
+  }
+
   useEffect(() => {
-    loadSessions()
+    const timer = window.setTimeout(loadSessions, 0)
+    return () => window.clearTimeout(timer)
   }, [loadSessions])
 
   const currentSession = useMemo(
@@ -189,19 +226,19 @@ export default function VideoStoryboard() {
   const loadAssets = useCallback(() => {
     fetchAssets(sessionId)
       .then((data) => setAssets(data))
-      .catch(() => {})
+      .catch(() => { })
   }, [sessionId])
 
   const loadScripts = useCallback(() => {
     fetchScripts(sessionId)
       .then((data) => setScripts(data))
-      .catch(() => {})
+      .catch(() => { })
   }, [sessionId])
 
   const loadVideos = useCallback(() => {
     fetchVideoTasksBySession(sessionId)
       .then((data) => setVideos(data))
-      .catch(() => {})
+      .catch(() => { })
   }, [sessionId])
 
   useEffect(() => {
@@ -210,29 +247,54 @@ export default function VideoStoryboard() {
     loadVideos()
   }, [sessionId, loadAssets, loadScripts, loadVideos])
 
+  const activeVideoTaskIds = useMemo(
+    () =>
+      videos
+        .filter((video) => video.status === 'queued' || video.status === 'running')
+        .map((video) => video.taskId)
+        .sort()
+        .join(','),
+    [videos],
+  )
+
   // SSE 订阅活跃任务
   useEffect(() => {
-    const activeTasks = videos.filter((v) => v.status === 'queued' || v.status === 'running')
-    const cleanups: (() => void)[] = []
-    for (const task of activeTasks) {
-      const cleanup = subscribeTaskStatus(task.taskId, (update) => {
-        setVideos((prev) =>
-          prev.map((v) =>
-            v.taskId === task.taskId
-              ? {
-                  ...v,
-                  status: (update.status as VideoTaskItem['status']) || v.status,
-                  generatedVideoUrl: update.generatedVideoUrl ?? v.generatedVideoUrl,
-                  errorMessage: update.errorMessage ?? v.errorMessage,
-                }
-              : v,
-          ),
-        )
-      })
-      cleanups.push(cleanup)
-    }
+    const taskIds = activeVideoTaskIds ? activeVideoTaskIds.split(',') : []
+    const cleanups = taskIds.map((taskId) =>
+      subscribeTaskStatus(taskId, (update) => {
+        setVideos((prev) => {
+          let changed = false
+          const next = prev.map((video) => {
+            if (video.taskId !== taskId) return video
+
+            const status = update.status ?? video.status
+            const generatedVideoUrl =
+              update.generatedVideoUrl ?? video.generatedVideoUrl
+            const errorMessage = update.errorMessage ?? video.errorMessage
+
+            if (
+              status === video.status &&
+              generatedVideoUrl === video.generatedVideoUrl &&
+              errorMessage === video.errorMessage
+            ) {
+              return video
+            }
+
+            changed = true
+            return {
+              ...video,
+              status,
+              generatedVideoUrl,
+              errorMessage,
+            }
+          })
+          return changed ? next : prev
+        })
+      }),
+    )
+
     return () => cleanups.forEach((c) => c())
-  }, [videos])
+  }, [activeVideoTaskIds])
 
   // ===== Chat =====
   const transport = useMemo(
@@ -242,6 +304,7 @@ export default function VideoStoryboard() {
 
   const { messages, sendMessage, setMessages, status, stop, error, clearError } = useChat<UIMessage>({
     transport,
+    throttle: CHAT_UPDATE_THROTTLE_MS,
   })
 
   // 加载当前会话的历史消息
@@ -254,21 +317,21 @@ export default function VideoStoryboard() {
           setMessages([])
         }
       })
-      .catch(() => {})
+      .catch(() => { })
   }, [sessionId, setMessages])
 
   const busy = status === 'submitted' || status === 'streaming'
   const hasUploading = images.some((img) => img.uploading)
   const canSend = status === 'ready' && !hasUploading && (prompt.trim().length > 0 || images.length > 0)
 
-  const debouncedScroll = useMemo(
-    () => debounce(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100),
-    [],
-  )
-
   useEffect(() => {
-    debouncedScroll()
-  }, [messages, debouncedScroll])
+    const animationFrame = requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({
+        behavior: status === 'streaming' ? 'auto' : 'smooth',
+      })
+    })
+    return () => cancelAnimationFrame(animationFrame)
+  }, [messages, status])
 
   // 发送完成后刷新数据
   useEffect(() => {
@@ -281,7 +344,7 @@ export default function VideoStoryboard() {
       }, 800)
       return () => clearTimeout(timer)
     }
-  }, [status, loadSessions, loadAssets, loadScripts, loadVideos])
+  }, [status, messages.length, loadSessions, loadAssets, loadScripts, loadVideos])
 
   // ===== 派生数据 =====
   const latestScript = useMemo(() => {
@@ -359,19 +422,8 @@ export default function VideoStoryboard() {
         prev.map((img) => (img.id === id ? { ...img, url: ossUrl, uploading: false } : img)),
       )
       URL.revokeObjectURL(tempUrl)
-
-      // 注册到后端素材表
-      await createAsset({
-        session_id: sessionId,
-        user_id: FALLBACK_USER_ID,
-        asset_type: mediaType.startsWith('video/') ? 'video' : 'image',
-        asset_purpose: 'analysis',
-        name: file.name,
-        url: ossUrl,
-      })
-      loadAssets()
-    } catch (err: any) {
-      antdMessage.error(`上传失败: ${err.message}`)
+    } catch (err: unknown) {
+      antdMessage.error(`上传失败: ${getErrorMessage(err)}`)
       setImages((prev) => prev.filter((img) => img.id !== id))
       URL.revokeObjectURL(tempUrl)
     }
@@ -399,20 +451,8 @@ export default function VideoStoryboard() {
     try {
       const actualType = await detectMediaTypeFromNetwork(url)
       setImages((prev) => prev.map((img) => (img.id === id ? { ...img, mediaType: actualType } : img)))
-
-      // 注册到后端素材表，作为 reference；同时保留在 images 中作为当前消息附件
-      await createAsset({
-        session_id: sessionId,
-        user_id: FALLBACK_USER_ID,
-        asset_type: actualType.startsWith('video/') ? 'video' : actualType.startsWith('image/') ? 'image' : 'url',
-        asset_purpose: 'reference',
-        name,
-        url,
-      })
-      loadAssets()
-      // 发送后统一清空 images
-    } catch (err: any) {
-      antdMessage.error(`添加素材失败: ${err.message}`)
+    } catch (err: unknown) {
+      antdMessage.error(`添加素材失败: ${getErrorMessage(err)}`)
       setImages((prev) => prev.filter((img) => img.id !== id))
     }
   }
@@ -421,23 +461,26 @@ export default function VideoStoryboard() {
     setImages((prev) => prev.filter((img) => img.id !== id))
   }
 
-  async function handleDeleteAsset(asset: AssetItem) {
+  const handleDeleteAsset = useCallback(async (asset: AssetItem) => {
     try {
       await deleteAsset(asset.id)
       loadAssets()
-    } catch (err: any) {
-      antdMessage.error(`删除失败: ${err.message}`)
+    } catch (err: unknown) {
+      antdMessage.error(`删除失败: ${getErrorMessage(err)}`)
     }
-  }
+  }, [loadAssets])
 
   // ===== 发送消息 =====
   async function handleSend() {
     if (!canSend) return
+
+    // 上传/添加链接时素材只暂存在 images（不入库），随消息发送后由后端统一入库解析
     const files = images.map((img) => ({
       type: 'file' as const,
       mediaType: img.mediaType,
       url: img.url,
       filename: img.name,
+      purpose: img.assetPurpose,
     }))
     await sendMessage(
       { text: prompt, files },
@@ -455,17 +498,17 @@ export default function VideoStoryboard() {
   }
 
   // ===== 引用脚本修改 =====
-  function handleQuoteScript(script: ScriptVersion) {
+  const handleQuoteScript = useCallback((script: ScriptVersion) => {
     setReferencedScriptId(script.id)
     setPrompt('')
-  }
+  }, [])
 
   function handleClearReference() {
     setReferencedScriptId(undefined)
   }
 
   // ===== 使用脚本生成视频 =====
-  async function handleGenerateVideo(scriptId?: number) {
+  const handleGenerateVideo = useCallback(async (scriptId?: number) => {
     const targetId = scriptId ?? latestScript?.id
     if (!targetId) {
       antdMessage.error('没有可生成视频的脚本')
@@ -476,18 +519,22 @@ export default function VideoStoryboard() {
       const task = await generateVideo({ script_id: targetId })
       setVideos((prev) => [task, ...prev])
       antdMessage.success('视频生成任务已提交')
-    } catch (err: any) {
-      antdMessage.error(`发起生成失败: ${err.message}`)
+    } catch (err: unknown) {
+      antdMessage.error(`发起生成失败: ${getErrorMessage(err)}`)
     } finally {
       setGenerating(false)
     }
-  }
+  }, [latestScript])
 
   // ===== 查看视频预览 =====
-  function handleSelectVideo(task: VideoTaskItem) {
+  const handleSelectVideo = useCallback((task: VideoTaskItem) => {
     setSelectedVideoTask(task)
     setView('preview')
-  }
+  }, [])
+
+  const handleAddAsset = useCallback(() => {
+    fileInputRef.current?.click()
+  }, [])
 
   // ===== 筛选会话 =====
   const filteredSessions = useMemo(() => {
@@ -514,7 +561,7 @@ export default function VideoStoryboard() {
         className={`lj-session-item ${session.sessionId === sessionId ? 'active' : ''}`}
         onClick={() => handleSwitchSession(session.sessionId)}
       >
-        <div className="lj-session-item__title">{session.topic || '未命名会话'}</div>
+        <div className="lj-session-item__title">{session.productProfile?.product_name || session.topic || '未命名会话'}</div>
         <div className="lj-session-item__meta">
           {isGenerating && <span className="lj-session-item__pulse" />}
           <span>
@@ -545,13 +592,13 @@ export default function VideoStoryboard() {
   const visibleMessages = useMemo(() => {
     return messages.filter((msg) => {
       if (msg.role === 'user') return true
-      return msg.parts.some((p: any) => {
+      return msg.parts.some((p) => {
         const type = p.type
         if (type === 'data-process-step' || type === 'data-process-complete' || type === 'step-start') {
           return false
         }
         if (type === 'text') {
-          return typeof p.text === 'string' && p.text.trim().length > 0
+          return p.text.trim().length > 0
         }
         return true
       })
@@ -597,20 +644,28 @@ export default function VideoStoryboard() {
         <div className="lj-sidebar__list">
           {filteredSessions.length === 0 ? (
             <div className="lj-sidebar__empty">
-              {searchQuery ? '未找到匹配的会话' : '暂无会话，点击新对话开始'}
+              {sessionsLoading
+                ? '加载中…'
+                : searchQuery
+                  ? '未找到匹配的会话'
+                  : '暂无会话，点击新对话开始'}
             </div>
           ) : (
             <>
               {recentSessions.length > 0 && (
                 <div className="lj-session-group">
                   <div className="lj-session-group__title">最近创作</div>
-                  {recentSessions.map(renderSessionItem)}
+                  <div onScroll={handleSessionListScroll} className="lj-session-list">
+                    {recentSessions.map(renderSessionItem)}
+                  </div>
                 </div>
               )}
               {generatingSessions.length > 0 && (
                 <div className="lj-session-group">
                   <div className="lj-session-group__title">生成中</div>
-                  {generatingSessions.map(renderSessionItem)}
+                  <div onScroll={handleSessionListScroll} className="lj-session-list">
+                    {generatingSessions.map(renderSessionItem)}
+                  </div>
                 </div>
               )}
             </>
@@ -905,8 +960,7 @@ export default function VideoStoryboard() {
         currentScriptId={latestScript?.id}
         activeTab={panelTab}
         onTabChange={setPanelTab}
-        onAddAsset={() => fileInputRef.current?.click()}
-        onAddUrl={() => {}}
+        onAddAsset={handleAddAsset}
         onDeleteAsset={handleDeleteAsset}
         onSelectScript={handleQuoteScript}
         onSelectVideo={handleSelectVideo}

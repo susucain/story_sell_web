@@ -19,6 +19,15 @@ export interface SessionSummary {
   updatedAt: string
 }
 
+/** 后端 /video/sessions 分页响应 */
+export interface SessionPage {
+  items: SessionSummary[]
+  total: number
+  page: number
+  pageSize: number
+  hasMore: boolean
+}
+
 /** 后端 video_scripts.shots 数组中的单个镜头 */
 export interface StoryboardShot {
   shot: number

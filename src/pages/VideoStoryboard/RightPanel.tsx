@@ -22,7 +22,6 @@ interface RightPanelProps {
   activeTab: TabKey
   onTabChange: (tab: TabKey) => void
   onAddAsset?: () => void
-  onAddUrl?: () => void
   onDeleteAsset?: (asset: AssetItem) => void
   onSelectScript?: (script: ScriptVersion) => void
   onSelectVideo?: (video: VideoTaskItem) => void
@@ -78,7 +77,6 @@ export const RightPanel = memo(function RightPanel({
   activeTab: tab,
   onTabChange,
   onAddAsset,
-  onAddUrl,
   onDeleteAsset,
   onSelectScript,
   onSelectVideo,

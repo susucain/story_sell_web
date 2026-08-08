@@ -101,7 +101,9 @@ html {
   height: 32px;
   border-radius: 8px;
   /* background: linear-gradient(135deg, #6366f1, #818cf8); */
-  background: url('@/assets/lingjian-ai-logo.jpg') no-repeat center center;
+  /* background: url('@/assets/lingjian-ai-logo.jpg') no-repeat center center; */
+  /* background: url('https://oss-ai-bucket.oss-cn-hangzhou.aliyuncs.com/uploads/lingjian-ai-logo.jpg?x-oss-process=image/resize,w_96,h_96') no-repeat center center; */
+  background: url('https://oss-ai-bucket.oss-cn-hangzhou.aliyuncs.com/uploads/lingjian-ai-logo.svg?x-oss-process=format,webp') no-repeat center center;
   background-size: cover;
   color: #fff;
   display: flex;
@@ -172,9 +174,28 @@ html {
   color: var(--lj-text-tertiary);
 }
 
+.lj-session-group:nth-child(1) {
+  height: 80%;
+}
+.lj-session-group:nth-child(2) {
+  height: 20%;
+}
+
 .lj-session-group__title {
   padding: 10px 12px 4px;
   font-size: 11px;
+  color: var(--lj-text-tertiary);
+}
+
+.lj-session-list {
+  overflow: auto;
+  height: 100%;
+}
+
+.lj-session-loadmore {
+  padding: 10px 12px;
+  text-align: center;
+  font-size: 12px;
   color: var(--lj-text-tertiary);
 }
 
@@ -630,6 +651,8 @@ html {
   color: var(--lj-text-tertiary);
   cursor: pointer;
   box-shadow: var(--lj-shadow);
+  background: #fff;
+  border-radius: 12px;
   z-index: 1;
 }
 

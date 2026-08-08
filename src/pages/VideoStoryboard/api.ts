@@ -1,5 +1,5 @@
 import type { UIMessage } from 'ai'
-import type { AssetItem, ScriptVersion, SessionSummary, VideoTaskItem } from './types'
+import type { AssetItem, ScriptVersion, SessionPage, VideoTaskItem } from './types'
 
 const BASE = '/video'
 
@@ -12,9 +12,12 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>
 }
 
-export function fetchSessions(userId?: number): Promise<SessionSummary[]> {
-  const qs = userId ? `?user_id=${userId}` : ''
-  return fetchJson<SessionSummary[]>(`${BASE}/sessions${qs}`)
+export function fetchSessions(userId?: number, page = 1, pageSize = 7): Promise<SessionPage> {
+  const params = new URLSearchParams()
+  if (userId) params.set('user_id', String(userId))
+  params.set('page', String(page))
+  params.set('page_size', String(pageSize))
+  return fetchJson<SessionPage>(`${BASE}/sessions?${params.toString()}`)
 }
 
 export function fetchHistory(sessionId: string): Promise<UIMessage[]> {

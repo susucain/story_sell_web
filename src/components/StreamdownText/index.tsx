@@ -8,6 +8,8 @@ import './style.css'
 const shikiTheme: [ThemeInput, ThemeInput] = ['github-light', 'github-dark']
 
 const codePlugin = createCodePlugin({ themes: shikiTheme })
+const streamdownPlugins = { mermaid, code: codePlugin }
+const streamdownControls = { table: false }
 
 export type StreamdownTextProps = {
   children: string
@@ -22,12 +24,12 @@ function StreamdownTextInner({
   return (
     <div className="chat-streamdown">
       <Streamdown
-        mode="streaming"
+        mode={isStreaming ? 'streaming' : 'static'}
         isAnimating={isStreaming}
-        parseIncompleteMarkdown
+        parseIncompleteMarkdown={isStreaming}
         shikiTheme={shikiTheme}
-        plugins={{ mermaid, code: codePlugin }}
-        controls={{ table: false }}
+        plugins={streamdownPlugins}
+        controls={streamdownControls}
         className="chat-streamdown__inner"
       >
         {children}

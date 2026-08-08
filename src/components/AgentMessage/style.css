@@ -184,7 +184,8 @@
 
 .storyboard-avatar--assistant {
   /* background: linear-gradient(135deg, #6366f1, #8b5cf6); */
-  background: url('@/assets/lingjian-ai-logo.jpg') no-repeat center center;
+  /* background: url('@/assets/lingjian-ai-logo.jpg') no-repeat center center; */
+  background: url('https://oss-ai-bucket.oss-cn-hangzhou.aliyuncs.com/uploads/lingjian-ai-logo.svg?x-oss-process=format,webp') no-repeat center center;
   background-size: cover;
   font-weight: 600;
 }
