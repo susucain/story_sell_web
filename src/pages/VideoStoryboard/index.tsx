@@ -10,7 +10,7 @@ import {
   FolderOpenOutlined,
   PaperClipOutlined,
   FileTextOutlined,
-  CloseCircleFilled
+  CloseCircleFilled,
 } from '@ant-design/icons'
 import {
   Button,
@@ -31,6 +31,7 @@ import {
   fetchHistory,
   fetchAssets,
   deleteAsset,
+  updateAssetPurpose,
   fetchScripts,
   generateVideo,
   fetchVideoTasksBySession,
@@ -173,6 +174,7 @@ export default function VideoStoryboard() {
   const [assets, setAssets] = useState<AssetItem[]>([])
   const [scripts, setScripts] = useState<ScriptVersion[]>([])
   const [referencedScriptId, setReferencedScriptId] = useState<number | undefined>()
+  const [generationScriptId, setGenerationScriptId] = useState<number | undefined>()
   const [panelTab, setPanelTab] = useState<'assets' | 'scripts' | 'videos'>('assets')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -360,6 +362,35 @@ export default function VideoStoryboard() {
     () => scripts.find((script) => script.id === referencedScriptId) ?? null,
     [scripts, referencedScriptId],
   )
+  const generationScript = useMemo(
+    () => scripts.find((script) => script.id === generationScriptId) ?? null,
+    [scripts, generationScriptId],
+  )
+  const referenceAssets = useMemo(
+    () => assets.filter((asset) => asset.assetPurpose === 'reference'),
+    [assets],
+  )
+  const referenceAssetSummary = useMemo(() => {
+    const urls = new Set<string>()
+    let imageCount = 0
+    let videoCount = 0
+
+    for (const asset of referenceAssets) {
+      if (urls.has(asset.url)) continue
+      urls.add(asset.url)
+      if (asset.assetType === 'video') videoCount += 1
+      else if (asset.assetType === 'image') imageCount += 1
+    }
+
+    for (const image of images) {
+      if (image.assetPurpose !== 'reference' || urls.has(image.url)) continue
+      urls.add(image.url)
+      if (image.mediaType.startsWith('video/')) videoCount += 1
+      else imageCount += 1
+    }
+
+    return { total: urls.size, images: imageCount, videos: videoCount }
+  }, [referenceAssets, images])
 
   // ===== 会话操作 =====
   function handleNewSession() {
@@ -372,6 +403,7 @@ export default function VideoStoryboard() {
     setView('chat')
     setSelectedVideoTask(null)
     setReferencedScriptId(undefined)
+    setGenerationScriptId(undefined)
     setAssets([])
     setScripts([])
     setVideos([])
@@ -388,6 +420,7 @@ export default function VideoStoryboard() {
     setView('chat')
     setSelectedVideoTask(null)
     setReferencedScriptId(undefined)
+    setGenerationScriptId(undefined)
   }
 
   // ===== 文件上传 =====
@@ -404,7 +437,14 @@ export default function VideoStoryboard() {
     const tempUrl = URL.createObjectURL(file)
     setImages((prev) => [
       ...prev,
-      { id, url: tempUrl, mediaType, name: file.name, assetPurpose: 'analysis', uploading: true },
+      {
+        id,
+        url: tempUrl,
+        mediaType,
+        name: file.name,
+        assetPurpose: generationScriptId ? 'reference' : 'analysis',
+        uploading: true,
+      },
     ])
 
     const formData = new FormData()
@@ -444,7 +484,7 @@ export default function VideoStoryboard() {
     const name = url.split('/').pop() || '网络素材'
     setImages((prev) => [
       ...prev,
-      { id, url, mediaType, name, assetPurpose: 'reference' },
+      { id, url, mediaType, name, assetPurpose: generationScriptId ? 'reference' : 'analysis' },
     ])
     setImageUrlInput('')
 
@@ -470,8 +510,24 @@ export default function VideoStoryboard() {
     }
   }, [loadAssets])
 
+  const handleUpdateAssetPurpose = useCallback(async (
+    asset: AssetItem,
+    assetPurpose: 'analysis' | 'reference',
+  ) => {
+    try {
+      await updateAssetPurpose(asset.id, assetPurpose)
+      loadAssets()
+    } catch (err: unknown) {
+      antdMessage.error(`更新素材用途失败: ${getErrorMessage(err)}`)
+    }
+  }, [loadAssets])
+
   // ===== 发送消息 =====
   async function handleSend() {
+    if (generationScript) {
+      await handleSubmitGeneration()
+      return
+    }
     if (!canSend) return
 
     // 上传/添加链接时素材只暂存在 images（不入库），随消息发送后由后端统一入库解析
@@ -500,6 +556,7 @@ export default function VideoStoryboard() {
   // ===== 引用脚本修改 =====
   const handleQuoteScript = useCallback((script: ScriptVersion) => {
     setReferencedScriptId(script.id)
+    setGenerationScriptId(undefined)
     setPrompt('')
   }, [])
 
@@ -508,23 +565,52 @@ export default function VideoStoryboard() {
   }
 
   // ===== 使用脚本生成视频 =====
-  const handleGenerateVideo = useCallback(async (scriptId?: number) => {
+  const handleGenerateVideo = useCallback((scriptId?: number) => {
     const targetId = scriptId ?? latestScript?.id
     if (!targetId) {
       antdMessage.error('没有可生成视频的脚本')
       return
     }
+    setGenerationScriptId(targetId)
+    setReferencedScriptId(undefined)
+    setPrompt('')
+    setImages([])
+  }, [latestScript])
+
+  function handleClearGeneration() {
+    setGenerationScriptId(undefined)
+    setPrompt('')
+    setImages([])
+  }
+
+  async function handleSubmitGeneration() {
+    if (!generationScript || generating || hasUploading) return
+
     setGenerating(true)
     try {
-      const task = await generateVideo({ script_id: targetId })
+      const task = await generateVideo({
+        script_id: generationScript.id,
+        session_id: sessionId,
+        user_id: FALLBACK_USER_ID,
+        user_prompt: prompt.trim() || undefined,
+        assets: images.map((image) => ({
+          type: image.mediaType.startsWith('video/') ? 'video' : 'image',
+          url: image.url,
+          name: image.name,
+        })),
+      })
       setVideos((prev) => [task, ...prev])
       antdMessage.success('视频生成任务已提交')
+      setGenerationScriptId(undefined)
+      setPrompt('')
+      setImages([])
+      loadAssets()
     } catch (err: unknown) {
       antdMessage.error(`发起生成失败: ${getErrorMessage(err)}`)
     } finally {
       setGenerating(false)
     }
-  }, [latestScript])
+  }
 
   // ===== 查看视频预览 =====
   const handleSelectVideo = useCallback((task: VideoTaskItem) => {
@@ -787,6 +873,40 @@ export default function VideoStoryboard() {
                     </button>
                   </div>
                 )}
+                {generationScript && (
+                  <div className="lj-generation-context">
+                    <div className="lj-generation-context__script">
+                      <VideoCameraOutlined />
+                      <span className="lj-generation-context__label">准备生成</span>
+                      <span className="lj-generation-context__title">
+                        {generationScript.title} · V{generationScript.version}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className="lj-generation-context__assets"
+                      onClick={() => setPanelTab('assets')}
+                      title="查看会话参考素材"
+                    >
+                      <FolderOpenOutlined />
+                      <span>{referenceAssetSummary.total} 项参考素材</span>
+                      {referenceAssetSummary.total > 0 && (
+                        <span className="lj-generation-context__assets-detail">
+                          {referenceAssetSummary.images} 图 / {referenceAssetSummary.videos} 视频
+                        </span>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      className="lj-generation-context__clear"
+                      aria-label="取消视频生成"
+                      title="取消视频生成"
+                      onClick={handleClearGeneration}
+                    >
+                      <CloseOutlined />
+                    </button>
+                  </div>
+                )}
 
                 {images.length > 0 && (
                   <div className="lj-attached">
@@ -821,8 +941,10 @@ export default function VideoStoryboard() {
                     autoSize={{ minRows: 1, maxRows: 4 }}
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
-                    placeholder="补充修改方向，或上传达人、商品素材来生成视频…"
-                    disabled={status !== 'ready'}
+                    placeholder={generationScript
+                      ? '补充画面、动作、风格或禁用元素…'
+                      : '补充修改方向，或上传达人、商品素材来生成视频…'}
+                    disabled={status !== 'ready' || generating}
                     onPressEnter={(e) => {
                       if (!e.shiftKey) {
                         e.preventDefault()
@@ -868,12 +990,12 @@ export default function VideoStoryboard() {
                       {busy ? (
                         <Button danger onClick={() => stop()}>停止</Button>
                       ) : (
-                        <Button
+                          <Button
                           type="primary"
                           onClick={handleSend}
-                          disabled={!canSend}
+                          disabled={generationScript ? hasUploading || generating : !canSend}
                         >
-                          发送
+                          {generationScript ? '立即生成' : '发送'}
                         </Button>
                       )}
                     </div>
@@ -962,6 +1084,7 @@ export default function VideoStoryboard() {
         onTabChange={setPanelTab}
         onAddAsset={handleAddAsset}
         onDeleteAsset={handleDeleteAsset}
+        onUpdateAssetPurpose={handleUpdateAssetPurpose}
         onSelectScript={handleQuoteScript}
         onSelectVideo={handleSelectVideo}
       />

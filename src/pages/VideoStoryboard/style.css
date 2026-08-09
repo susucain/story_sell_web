@@ -177,6 +177,7 @@ html {
 .lj-session-group:nth-child(1) {
   height: 80%;
 }
+
 .lj-session-group:nth-child(2) {
   height: 20%;
 }
@@ -616,6 +617,95 @@ html {
   background: rgba(99, 102, 241, 0.14);
 }
 
+.lj-generation-context {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 34px;
+  margin-bottom: 10px;
+  padding: 0 8px 0 10px;
+  border: 1px solid #dedcff;
+  border-radius: var(--lj-radius-sm);
+  background: #f5f4ff;
+}
+
+.lj-generation-context__script {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 6px;
+  color: #5144e5;
+}
+
+.lj-generation-context__script>.anticon {
+  flex: 0 0 auto;
+  font-size: 14px;
+}
+
+.lj-generation-context__label {
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.lj-generation-context__title {
+  overflow: hidden;
+  color: var(--lj-primary);
+  font-size: 12px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lj-generation-context__assets {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  padding: 3px 6px;
+  border: 0;
+  border-radius: 3px;
+  background: rgba(81, 68, 229, 0.07);
+  color: var(--lj-primary);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.lj-generation-context__assets:hover {
+  background: rgba(81, 68, 229, 0.13);
+  color: #4d40d9;
+}
+
+.lj-generation-context__assets-detail {
+  color: var(--lj-primary);
+}
+
+.lj-generation-context__clear {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: #827c9f;
+  cursor: pointer;
+}
+
+.lj-generation-context__clear:hover {
+  background: rgba(81, 68, 229, 0.1);
+  color: #5144e5;
+}
+
 .lj-attached {
   display: flex;
   gap: 8px;
@@ -645,7 +735,7 @@ html {
 
 .lj-attached__remove {
   position: absolute;
-  top:-4px;
+  top: -4px;
   right: -4px;
   font-size: 12px;
   color: var(--lj-text-tertiary);
@@ -1132,6 +1222,26 @@ html {
   gap: 8px;
 }
 
+.lj-asset-group+.lj-asset-group {
+  margin-top: 20px;
+}
+
+.lj-asset-group__title {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 8px;
+  color: var(--lj-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.lj-asset-group__title span {
+  color: var(--lj-text-tertiary);
+  font-size: 11px;
+  font-weight: 400;
+}
+
 .lj-asset-card {
   display: flex;
   gap: 10px;
@@ -1187,6 +1297,13 @@ html {
   font-weight: 500;
   color: var(--lj-text);
   margin-bottom: 4px;
+
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-all;
 }
 
 .lj-asset-card__status {
@@ -1195,6 +1312,25 @@ html {
   display: flex;
   align-items: center;
   gap: 4px;
+}
+
+.lj-asset-card__purpose.ant-tag {
+  align-self: flex-start;
+  margin: 5px 0 0;
+  padding: 0 4px;
+  border-color: var(--lj-border);
+  border-radius: 3px;
+  background: var(--lj-bg-section);
+  color: var(--lj-text-tertiary);
+  font-size: 10px;
+  line-height: 16px;
+}
+
+.lj-asset-card__actions {
+  display: flex;
+  align-items: center;
+  align-self: center;
+  gap: 1px;
 }
 
 /* 脚本版本 */

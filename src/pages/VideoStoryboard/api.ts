@@ -52,6 +52,17 @@ export function deleteAsset(assetId: number): Promise<{ success: boolean }> {
   })
 }
 
+export function updateAssetPurpose(
+  assetId: number,
+  assetPurpose: 'analysis' | 'reference',
+): Promise<AssetItem> {
+  return fetchJson<AssetItem>(`${BASE}/assets/${assetId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ asset_purpose: assetPurpose }),
+  })
+}
+
 export function fetchScripts(sessionId: string): Promise<ScriptVersion[]> {
   return fetchJson<ScriptVersion[]>(`${BASE}/scripts/${sessionId}`)
 }
@@ -60,7 +71,19 @@ export function fetchScriptDetail(scriptId: number): Promise<ScriptVersion> {
   return fetchJson<ScriptVersion>(`${BASE}/scripts/${scriptId}/detail`)
 }
 
-export function generateVideo(body: { script_id: number; callback_url?: string }): Promise<VideoTaskItem> {
+export interface GenerateVideoBody {
+  script_id: number
+  session_id: string
+  user_id: number
+  user_prompt?: string
+  assets?: Array<{
+    type: 'image' | 'video'
+    url: string
+    name?: string
+  }>
+}
+
+export function generateVideo(body: GenerateVideoBody): Promise<VideoTaskItem> {
   return fetchJson<VideoTaskItem>(`${BASE}/generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

@@ -1,5 +1,5 @@
 import { memo, useState } from 'react'
-import { Button, Tag, Progress, Popconfirm } from 'antd'
+import { Button, Tag, Progress, Popconfirm, Tooltip } from 'antd'
 import {
   PlusOutlined,
   FileTextOutlined,
@@ -11,6 +11,7 @@ import {
   LoadingOutlined,
   ExclamationCircleOutlined,
   DeleteOutlined,
+  SwapOutlined,
 } from '@ant-design/icons'
 import type { AssetItem, ScriptVersion, VideoTaskItem } from './types'
 
@@ -23,6 +24,7 @@ interface RightPanelProps {
   onTabChange: (tab: TabKey) => void
   onAddAsset?: () => void
   onDeleteAsset?: (asset: AssetItem) => void
+  onUpdateAssetPurpose?: (asset: AssetItem, purpose: 'analysis' | 'reference') => void
   onSelectScript?: (script: ScriptVersion) => void
   onSelectVideo?: (video: VideoTaskItem) => void
 }
@@ -78,12 +80,74 @@ export const RightPanel = memo(function RightPanel({
   onTabChange,
   onAddAsset,
   onDeleteAsset,
+  onUpdateAssetPurpose,
   onSelectScript,
   onSelectVideo,
 }: RightPanelProps) {
   const [showAllScripts, setShowAllScripts] = useState(false)
 
   const displayedScripts = showAllScripts ? scripts : scripts.slice(0, 3)
+  const referenceAssets = assets.filter((asset) => asset.assetPurpose === 'reference')
+  const analysisAssets = assets.filter((asset) => asset.assetPurpose === 'analysis')
+
+  const renderAssetCard = (asset: AssetItem) => (
+    <div className="lj-asset-card" key={asset.id}>
+      <div className="lj-asset-card__thumb">
+        {asset.assetType === 'video' ? (
+          <video src={asset.url} muted />
+        ) : (
+          <img src={asset.thumbnailUrl || asset.url} alt={asset.name} />
+        )}
+        <span className="lj-asset-card__type">
+          {asset.assetType === 'video' ? <VideoCameraOutlined /> : asset.assetType === 'url' ? <LinkOutlined /> : <PictureOutlined />}
+        </span>
+      </div>
+      <div className="lj-asset-card__info">
+        <div className="lj-asset-card__label">{asset.name}</div>
+        <div className="lj-asset-card__status">
+          {asset.status === 'parsed' ? (
+            <CheckCircleFilled style={{ color: '#10b981' }} />
+          ) : asset.status === 'failed' ? (
+            <ExclamationCircleOutlined style={{ color: '#ef4444' }} />
+          ) : (
+            <LoadingOutlined style={{ color: '#6366f1' }} />
+          )}{' '}
+          {assetStatusText(asset.status)}
+        </div>
+      </div>
+      <div className="lj-asset-card__actions">
+        {onUpdateAssetPurpose && (
+          <Tooltip title={asset.assetPurpose === 'reference' ? '设为仅用于脚本分析' : '设为用于视频生成'}>
+            <Button
+              type="text"
+              size="small"
+              icon={<SwapOutlined />}
+              onClick={() => onUpdateAssetPurpose(
+                asset,
+                asset.assetPurpose === 'reference' ? 'analysis' : 'reference',
+              )}
+            />
+          </Tooltip>
+        )}
+        {onDeleteAsset && (
+          <Popconfirm
+            title="删除素材"
+            description="确定要删除这个素材吗？"
+            onConfirm={() => onDeleteAsset(asset)}
+            okText="删除"
+            cancelText="取消"
+          >
+            <Button
+              type="text"
+              size="small"
+              icon={<DeleteOutlined />}
+              className="lj-asset-card__delete"
+            />
+          </Popconfirm>
+        )}
+      </div>
+    </div>
+  )
 
   return (
     <div className="lj-right-panel">
@@ -114,7 +178,7 @@ export const RightPanel = memo(function RightPanel({
         {tab === 'assets' && (
           <div className="lj-panel-section">
             <div className="lj-panel-section__head">
-              <span className="lj-panel-section__title">本轮素材</span>
+              <span className="lj-panel-section__title">会话素材</span>
               <div>
                 <button className="lj-link-btn" onClick={onAddAsset}>
                   <PlusOutlined /> 添加素材
@@ -127,51 +191,24 @@ export const RightPanel = memo(function RightPanel({
                 <p>暂无素材，上传图片或视频后自动解析</p>
               </div>
             ) : (
-              <div className="lj-asset-grid">
-                {assets.map((asset) => (
-                  <div className="lj-asset-card" key={asset.id}>
-                    <div className="lj-asset-card__thumb">
-                      {asset.assetType === 'video' ? (
-                        <video src={asset.url} muted />
-                      ) : (
-                        <img src={asset.thumbnailUrl || asset.url} alt={asset.name} />
-                      )}
-                      <span className="lj-asset-card__type">
-                        {asset.assetType === 'video' ? <VideoCameraOutlined /> : asset.assetType === 'url' ? <LinkOutlined /> : <PictureOutlined />}
-                      </span>
-                    </div>
-                    <div className="lj-asset-card__info">
-                      <div className="lj-asset-card__label">{asset.name}</div>
-                      <div className="lj-asset-card__status">
-                        {asset.status === 'parsed' ? (
-                          <CheckCircleFilled style={{ color: '#10b981' }} />
-                        ) : asset.status === 'failed' ? (
-                          <ExclamationCircleOutlined style={{ color: '#ef4444' }} />
-                        ) : (
-                          <LoadingOutlined style={{ color: '#6366f1' }} />
-                        )}{' '}
-                        {assetStatusText(asset.status)}
-                      </div>
-                    </div>
-                    {onDeleteAsset && (
-                      <Popconfirm
-                        title="删除素材"
-                        description="确定要删除这个素材吗？"
-                        onConfirm={() => onDeleteAsset(asset)}
-                        okText="删除"
-                        cancelText="取消"
-                      >
-                        <Button
-                          type="text"
-                          size="small"
-                          icon={<DeleteOutlined />}
-                          className="lj-asset-card__delete"
-                        />
-                      </Popconfirm>
-                    )}
+              <>
+                <div className="lj-asset-group">
+                  <div className="lj-asset-group__title">
+                    参考素材 <span>将用于视频生成 · {referenceAssets.length}</span>
                   </div>
-                ))}
-              </div>
+                  <div className="lj-asset-grid">
+                    {referenceAssets.map(renderAssetCard)}
+                  </div>
+                </div>
+                <div className="lj-asset-group">
+                  <div className="lj-asset-group__title">
+                    分析素材 <span>仅用于脚本分析 · {analysisAssets.length}</span>
+                  </div>
+                  <div className="lj-asset-grid">
+                    {analysisAssets.map(renderAssetCard)}
+                  </div>
+                </div>
+              </>
             )}
           </div>
         )}

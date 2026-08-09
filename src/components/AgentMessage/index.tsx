@@ -224,11 +224,11 @@ function FileIcon({ className }: { className?: string }) {
 
 /** 创作过程面板：按设计稿渲染三阶段时间线 */
 function ProcessPanel({ parts, isStreaming }: { parts: UIMessage['parts']; isStreaming?: boolean }) {
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(true)
   const state = useProcessState(parts)
   if (!state || state.phases.length === 0) return null
 
-  const completedPhases = state.phases.filter((p) => p.status === 'completed').length
+  // const completedPhases = state.phases.filter((p) => p.status === 'completed').length
   const operationCount = state.phases.reduce((sum, phase) => {
     return (
       sum +
