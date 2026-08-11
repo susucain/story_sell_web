@@ -73,7 +73,32 @@ interface UploadedImage {
   mediaType: string
   name: string
   assetPurpose: 'analysis' | 'reference'
+  durationSec?: number
   uploading?: boolean
+}
+
+function readVideoDuration(url: string): Promise<number | undefined> {
+  return new Promise((resolve) => {
+    const video = document.createElement('video')
+    const timeout = window.setTimeout(() => finish(undefined), 5000)
+
+    function finish(duration: number | undefined) {
+      window.clearTimeout(timeout)
+      video.removeAttribute('src')
+      video.load()
+      resolve(duration)
+    }
+
+    video.preload = 'metadata'
+    video.onloadedmetadata = () => {
+      const duration = Number.isFinite(video.duration) && video.duration > 0
+        ? Math.round(video.duration * 1000) / 1000
+        : undefined
+      finish(duration)
+    }
+    video.onerror = () => finish(undefined)
+    video.src = url
+  })
 }
 
 function detectMediaTypeFromUrl(url: string): string {
@@ -435,6 +460,9 @@ export default function VideoStoryboard() {
     const id = Date.now().toString()
     const mediaType = file.type
     const tempUrl = URL.createObjectURL(file)
+    const durationSec = mediaType.startsWith('video/')
+      ? await readVideoDuration(tempUrl)
+      : undefined
     setImages((prev) => [
       ...prev,
       {
@@ -443,6 +471,7 @@ export default function VideoStoryboard() {
         mediaType,
         name: file.name,
         assetPurpose: generationScriptId ? 'reference' : 'analysis',
+        durationSec,
         uploading: true,
       },
     ])
@@ -490,7 +519,10 @@ export default function VideoStoryboard() {
 
     try {
       const actualType = await detectMediaTypeFromNetwork(url)
-      setImages((prev) => prev.map((img) => (img.id === id ? { ...img, mediaType: actualType } : img)))
+      const durationSec = actualType.startsWith('video/') ? await readVideoDuration(url) : undefined
+      setImages((prev) => prev.map((img) => (
+        img.id === id ? { ...img, mediaType: actualType, durationSec } : img
+      )))
     } catch (err: unknown) {
       antdMessage.error(`添加素材失败: ${getErrorMessage(err)}`)
       setImages((prev) => prev.filter((img) => img.id !== id))
@@ -537,6 +569,7 @@ export default function VideoStoryboard() {
       url: img.url,
       filename: img.name,
       purpose: img.assetPurpose,
+      durationSec: img.durationSec,
     }))
     await sendMessage(
       { text: prompt, files },

@@ -36,6 +36,7 @@ export interface CreateAssetBody {
   name: string
   url: string
   thumbnail_url?: string
+  duration_sec?: number
 }
 
 export function createAsset(body: CreateAssetBody): Promise<AssetItem> {

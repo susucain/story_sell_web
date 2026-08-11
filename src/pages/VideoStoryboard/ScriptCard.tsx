@@ -34,6 +34,10 @@ export const ScriptCard = memo(function ScriptCard({
   onGenerateVideo,
   generating = false,
 }: ScriptCardProps) {
+  const videoEdit = parsed.edit?.mode === 'full_video_edit' ? parsed.edit : undefined
+  const sourceVideo = videoEdit
+    ? assets.find((asset) => asset.id === videoEdit.sourceAssetId)
+    : undefined
   const analysisAssets = assets.filter((a) => a.assetPurpose === 'analysis')
   const imageCount = analysisAssets.filter((a) => a.assetType === 'image').length
   const videoCount = analysisAssets.filter((a) => a.assetType === 'video').length
@@ -41,19 +45,29 @@ export const ScriptCard = memo(function ScriptCard({
   const assetText: string[] = []
   if (imageCount > 0) assetText.push(`商品主图 ×${imageCount}`)
   if (videoCount > 0) assetText.push(`参考视频 ×${videoCount}`)
+  if (sourceVideo) assetText.push(`原视频：${sourceVideo.name}`)
 
   return (
     <div className="lj-script-card">
       {/* 头部 */}
       <div className="lj-script-card__header">
-        <div className="lj-script-card__version">视频分镜脚本 · V{parsed.version}</div>
+        <div className="lj-script-card__version">
+          {videoEdit ? '视频修改任务' : '视频分镜脚本'} · V{parsed.version}
+        </div>
         <h3 className="lj-script-card__title">{parsed.title}</h3>
         {parsed.description && (
           <p className="lj-script-card__desc">{parsed.description}</p>
         )}
         <div className="lj-script-card__meta">
           {parsed.totalDuration > 0 && (
-            <MetaTag icon={<ClockCircleOutlined />}>{parsed.totalDuration} 秒</MetaTag>
+            <MetaTag icon={<ClockCircleOutlined />}>
+              {videoEdit ? `输出 ${parsed.totalDuration} 秒` : `${parsed.totalDuration} 秒`}
+            </MetaTag>
+          )}
+          {videoEdit && (
+            <MetaTag icon={<ClockCircleOutlined />}>
+              修改 {videoEdit.targetStartSec}s-{videoEdit.targetEndSec}s
+            </MetaTag>
           )}
           <MetaTag icon={<MobileOutlined />}>{parsed.ratio} 竖版</MetaTag>
           <MetaTag icon={<AudioOutlined />}>{parsed.style}</MetaTag>
@@ -107,7 +121,7 @@ export const ScriptCard = memo(function ScriptCard({
             onClick={onGenerateVideo}
             loading={generating}
           >
-            使用该脚本生成视频
+            {videoEdit ? '生成修改后视频' : '使用该脚本生成视频'}
           </Button>
         </div>
       )}

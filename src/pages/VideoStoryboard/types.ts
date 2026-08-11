@@ -45,6 +45,16 @@ export interface ScriptMeta {
   platform?: string
   description?: string
   hashtags?: string[]
+  edit?: VideoEditMeta
+}
+
+export interface VideoEditMeta {
+  mode: 'full_video_edit'
+  sourceAssetId: number
+  sourceDurationSec: number
+  targetStartSec: number
+  targetEndSec: number
+  preserveAudio: boolean
 }
 
 /** 后端 /video/scripts/:sessionId 或 /video/scripts/:id/detail 返回的脚本 */
@@ -118,6 +128,7 @@ export interface ParsedStoryboard {
   ratio: string
   style: string
   platform: string
+  edit?: VideoEditMeta
   rawMarkdown: string
 }
 
@@ -135,10 +146,11 @@ export function toParsedStoryboard(script: ScriptVersion): ParsedStoryboard {
     title: script.title,
     description: meta.description || script.hook || '',
     shots: script.shots,
-    totalDuration: meta.duration || maxEnd || 15,
+    totalDuration: meta.edit?.sourceDurationSec || meta.duration || maxEnd || 15,
     ratio: meta.ratio || '9:16',
     style: meta.style || '真实口播',
     platform: meta.platform || '抖音/小红书',
+    edit: meta.edit,
     rawMarkdown: script.scriptMarkdown,
   }
 }
