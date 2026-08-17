@@ -10,8 +10,7 @@
     "preview": "vite preview",
     "docker:up": "docker compose -f docker-compose.yml up -d --build",
     "docker:down": "docker compose -f docker-compose.yml down",
-    "docker:build": "docker build -t agui-frontend:latest .",
-    "deploy": "bash deploy.sh"
+    "docker:build": "docker build -t agui-frontend:latest ."
   },
   "dependencies": {
     "@ai-sdk/react": "^4.0.45",

@@ -1,37 +1,75 @@
-name: Deploy
+name: Deploy frontend to production
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   workflow_dispatch:
 
+concurrency:
+  group: frontend-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
 jobs:
-  deploy:
+  build-and-deploy:
+    name: Build and deploy
     runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 20
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out repository
+        uses: actions/checkout@v4
 
-      - name: Log in to container registry
-        uses: docker/login-action@v3
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
         with:
-          registry: ${{ secrets.REGISTRY_URL }}
-          username: ${{ secrets.REGISTRY_USERNAME }}
-          password: ${{ secrets.REGISTRY_PASSWORD }}
+          version: 10.33.0
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v6
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          context: .
-          push: true
-          tags: ${{ secrets.REGISTRY_URL }}/agui-frontend:latest
+          node-version: 24.15.0
+          cache: pnpm
 
-      - name: Deploy to ECS
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.ECS_HOST }}
-          username: ${{ secrets.ECS_USERNAME }}
-          key: ${{ secrets.ECS_SSH_KEY }}
-          script: |
-            cd /srv/agui-frontend
-            docker compose pull
-            docker compose up -d
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build production assets
+        run: pnpm build
+
+      - name: Package release
+        run: tar -C dist -czf "frontend-${GITHUB_SHA}.tar.gz" .
+
+      - name: Configure SSH
+        env:
+          ECS_KNOWN_HOSTS: ${{ secrets.ECS_KNOWN_HOSTS }}
+          ECS_SSH_PRIVATE_KEY: ${{ secrets.ECS_SSH_PRIVATE_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$ECS_SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          printf '%s\n' "$ECS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/deploy_key ~/.ssh/known_hosts
+
+      - name: Upload release
+        env:
+          ECS_HOST: ${{ secrets.ECS_HOST }}
+          ECS_PORT: ${{ secrets.ECS_PORT }}
+          ECS_USER: ${{ secrets.ECS_USER }}
+        run: |
+          scp -i ~/.ssh/deploy_key -P "$ECS_PORT" \
+            "frontend-${GITHUB_SHA}.tar.gz" scripts/deploy-frontend.sh \
+            "$ECS_USER@$ECS_HOST:/opt/agui-frontend/incoming/"
+
+      - name: Deploy release
+        env:
+          ECS_HOST: ${{ secrets.ECS_HOST }}
+          ECS_PORT: ${{ secrets.ECS_PORT }}
+          ECS_USER: ${{ secrets.ECS_USER }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "$ECS_PORT" \
+            "$ECS_USER@$ECS_HOST" \
+            "chmod 700 /opt/agui-frontend/incoming/deploy-frontend.sh && /opt/agui-frontend/incoming/deploy-frontend.sh '/opt/agui-frontend/incoming/frontend-${GITHUB_SHA}.tar.gz' '${GITHUB_SHA}'"
