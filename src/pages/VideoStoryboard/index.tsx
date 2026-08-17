@@ -37,6 +37,7 @@ import {
   subscribeTaskStatus,
 } from './api'
 import { useSessionList } from './useSessionList'
+import { createSessionId } from './session-id'
 import './style.css'
 
 const STORAGE_KEY = 'video_storyboard_session_id'
@@ -46,7 +47,7 @@ const CHAT_UPDATE_THROTTLE_MS = 80
 function getOrCreateSessionId(): string {
   let sessionId = localStorage.getItem(STORAGE_KEY)
   if (!sessionId) {
-    sessionId = crypto.randomUUID()
+    sessionId = createSessionId()
     localStorage.setItem(STORAGE_KEY, sessionId)
   }
   return sessionId
@@ -398,7 +399,7 @@ export default function VideoStoryboard() {
 
   // ===== 会话操作 =====
   function handleNewSession() {
-    const newId = crypto.randomUUID()
+    const newId = createSessionId()
     localStorage.setItem(STORAGE_KEY, newId)
     setSessionId(newId)
     setMessages([])
