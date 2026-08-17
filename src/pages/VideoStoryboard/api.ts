@@ -12,12 +12,19 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>
 }
 
-export function fetchSessions(userId?: number, page = 1, pageSize = 7): Promise<SessionPage> {
+export function fetchSessions(
+  userId?: number,
+  page = 1,
+  pageSize = 7,
+  keyword?: string,
+  signal?: AbortSignal,
+): Promise<SessionPage> {
   const params = new URLSearchParams()
   if (userId) params.set('user_id', String(userId))
   params.set('page', String(page))
   params.set('page_size', String(pageSize))
-  return fetchJson<SessionPage>(`${BASE}/sessions?${params.toString()}`)
+  if (keyword) params.set('keyword', keyword)
+  return fetchJson<SessionPage>(`${BASE}/sessions?${params.toString()}`, { signal })
 }
 
 export function fetchHistory(sessionId: string): Promise<UIMessage[]> {
@@ -37,6 +44,7 @@ export interface CreateAssetBody {
   url: string
   thumbnail_url?: string
   duration_sec?: number
+  content_category?: 'portrait' | 'product' | 'food' | 'store' | 'environment' | 'other'
 }
 
 export function createAsset(body: CreateAssetBody): Promise<AssetItem> {

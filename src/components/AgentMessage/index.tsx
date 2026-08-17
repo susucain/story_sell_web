@@ -15,11 +15,14 @@ import {
   CodeOutlined,
   ThunderboltOutlined,
   SendOutlined,
+  DownloadOutlined,
+  ExclamationCircleOutlined,
 } from '@ant-design/icons'
-import { Image } from 'antd'
+import { Button, Image } from 'antd'
 import { StreamdownText } from '../StreamdownText'
 import { ScriptCard } from '../../pages/VideoStoryboard/ScriptCard'
-import type { ScriptVersion, AssetItem } from '../../pages/VideoStoryboard/types'
+import { VideoMessagePreview } from '../../pages/VideoStoryboard/VideoMessagePreview'
+import type { ScriptVersion, AssetItem, VideoTaskItem } from '../../pages/VideoStoryboard/types'
 import { toParsedStoryboard } from '../../pages/VideoStoryboard/types'
 import type { ProcessPhase, ProcessState, ProcessStatePart } from './process-types'
 import './style.css'
@@ -239,6 +242,7 @@ function ProcessPanel({ parts, isStreaming }: { parts: UIMessage['parts']; isStr
   }, 0)
 
   const isRunning = state.status === 'running' || isStreaming
+  const isWaitingForUser = state.status === 'waiting_for_user'
 
   return (
     <div className="process-panel">
@@ -253,11 +257,13 @@ function ProcessPanel({ parts, isStreaming }: { parts: UIMessage['parts']; isStr
           </div>
         </div>
         <div className="process-header__right">
-          <span className={`process-status ${isRunning ? 'running' : ''}`}>
+          <span className={`process-status ${isRunning ? 'running' : isWaitingForUser ? 'waiting' : ''}`}>
             {isRunning ? (
               <>
                 <span className="pulse-dot" /> 进行中
               </>
+            ) : isWaitingForUser ? (
+              <>等待你的确认</>
             ) : (
               <>
                 <CheckIcon className="process-status__icon" /> 创作完成
@@ -306,11 +312,12 @@ function ProcessPhaseView({
 }) {
   const done = phase.status === 'completed'
   const running = phase.status === 'running'
+  const waiting = phase.status === 'waiting_for_user'
   const duration = phase.endTime && phase.startTime ? phase.endTime - phase.startTime : undefined
 
   return (
-    <div className={`step ${done ? 'done' : running ? 'running' : ''}`}>
-      <div className="step-marker">{done ? <CheckIcon className="step-marker__icon" /> : index}</div>
+    <div className={`step ${done ? 'done' : running ? 'running' : waiting ? 'waiting' : ''}`}>
+      <div className="step-marker">{done ? <CheckIcon className="step-marker__icon" /> : waiting ? '?' : index}</div>
       <div className="step-content">
         <div className="step-header">
           <div>
@@ -318,7 +325,7 @@ function ProcessPhaseView({
             <div className="step-desc">{phase.description}</div>
           </div>
           <span className="step-time">
-            {done ? formatDuration(duration) : running ? '进行中' : '等待中'}
+            {done ? formatDuration(duration) : running ? '进行中' : waiting ? '等待确认' : '等待中'}
           </span>
         </div>
 
@@ -377,6 +384,7 @@ function GeneratePhaseBody({ phase, isRunning }: { phase: ProcessPhase; isRunnin
   const outputs = phase.outputs ?? []
   const allDone = phase.status === 'completed'
   const anyRunning = actions.some((a) => a.status === 'running') || phase.status === 'running'
+  const anyWaiting = actions.some((a) => a.status === 'waiting_for_user')
 
   const generateAction = actions.find((a) => a.id === 'generate-script-action')
 
@@ -389,7 +397,7 @@ function GeneratePhaseBody({ phase, isRunning }: { phase: ProcessPhase; isRunnin
         </div>
       )}
 
-      {(allDone || outputs.length > 0) && (
+      {(allDone || anyWaiting || outputs.length > 0) && (
         <>
           {actions.map((action) => (
             <div className={`child-item ${action.status}`} key={action.id}>
@@ -397,6 +405,8 @@ function GeneratePhaseBody({ phase, isRunning }: { phase: ProcessPhase; isRunnin
                 <CheckIcon className="child-icon success" />
               ) : action.status === 'running' ? (
                 <span className="spinner" />
+              ) : action.status === 'waiting_for_user' ? (
+                <span className="child-icon pending">?</span>
               ) : (
                 <FileIcon className="child-icon pending" />
               )}
@@ -529,6 +539,108 @@ function splitAssistantParts(parts: UIMessage['parts']) {
   return { mainToolParts, subAgentSections, finalTextParts, reasoningParts }
 }
 
+interface VideoGenerationMetadata {
+  kind: 'video_generation_submitted' | 'video_generation_result'
+  taskId: string
+  scriptId?: number
+  status: VideoTaskItem['status']
+  generatedVideoUrl?: string
+  errorMessage?: string
+  duration?: number
+  ratio?: string
+  resolution?: string
+}
+
+function getVideoGenerationMetadata(message: UIMessage): VideoGenerationMetadata | null {
+  const metadata = message.metadata as Partial<VideoGenerationMetadata> | undefined
+  if (
+    !metadata
+    || (metadata.kind !== 'video_generation_submitted'
+      && metadata.kind !== 'video_generation_result')
+    || typeof metadata.taskId !== 'string'
+  ) {
+    return null
+  }
+  return metadata as VideoGenerationMetadata
+}
+
+function VideoGenerationMessageCard({
+  metadata,
+  task,
+  script,
+  onReferenceVideo,
+  isFocused,
+}: {
+  metadata: VideoGenerationMetadata
+  task?: VideoTaskItem
+  script?: ScriptVersion
+  onReferenceVideo?: (task: VideoTaskItem) => void
+  isFocused?: boolean
+}) {
+  const status = task?.status ?? metadata.status
+  const videoUrl = task?.generatedVideoUrl ?? metadata.generatedVideoUrl
+  const errorMessage = task?.errorMessage ?? metadata.errorMessage
+  const isSucceeded = status === 'succeeded' && Boolean(videoUrl)
+  const isPending = status === 'queued' || status === 'running' || status === 'persisting'
+  const isFailed = !isSucceeded && !isPending
+  const title = isSucceeded
+    ? '视频已生成'
+    : status === 'persisting'
+      ? '正在保存视频'
+    : isPending
+      ? '视频生成中'
+      : '视频生成未完成'
+
+  return (
+    <div
+      className={`video-generation-card video-generation-card--${status}${isFocused ? ' is-focused' : ''}`}
+      data-video-task-id={metadata.taskId}
+    >
+      {isSucceeded && task ? (
+        <>
+          <VideoMessagePreview
+            videoTask={task}
+            parsed={script ? toParsedStoryboard(script) : null}
+          />
+          <div className="video-generation-card__actions">
+            <Button
+              onClick={() => onReferenceVideo?.(task)}
+              className="lj-btn-ghost"
+            >
+              引用视频修改
+            </Button>
+            <a href={videoUrl} download target="_blank" rel="noreferrer">
+              <Button type="primary" icon={<DownloadOutlined />} className="lj-btn-primary">下载</Button>
+            </a>
+          </div>
+        </>
+      ) : (
+        <div className="video-generation-card__head">
+          <span className="video-generation-card__icon">
+            {isPending ? <LoadingOutlined spin /> : <ExclamationCircleOutlined />}
+          </span>
+          <div>
+            <div className="video-generation-card__title">{title}</div>
+            <div className="video-generation-card__meta">
+              {metadata.scriptId ? `基于脚本 #${metadata.scriptId}` : '视频生成任务'}
+              {task?.ratio && ` · ${task.ratio}`}
+              {task?.resolution && ` · ${task.resolution}`}
+            </div>
+          </div>
+        </div>
+      )}
+      {isPending && (
+        <div className="video-generation-card__progress">
+          {status === 'persisting'
+            ? '视频已生成，正在保存到工作区。'
+            : '任务已提交，完成后将在这里显示视频。'}
+        </div>
+      )}
+      {isFailed && <div className="video-generation-card__error">{errorMessage || '视频任务未能完成，请重新生成。'}</div>}
+    </div>
+  )
+}
+
 export interface AgentMessageProps {
   message: UIMessage
   isStreaming?: boolean
@@ -548,6 +660,12 @@ export interface AgentMessageProps {
   onGenerateVideo?: (scriptId?: number) => void
   /** 视频生成中状态 */
   generating?: boolean
+  /** 当前会话视频任务，用于从任务消息解析最新状态 */
+  videos?: VideoTaskItem[]
+  /** 将已生成视频作为下一次生成的参考素材 */
+  onReferenceVideo?: (task: VideoTaskItem) => void
+  /** 右侧视频任务卡定位到的消息 */
+  focusedVideoTaskId?: string
 }
 
 export const AgentMessage = memo(function AgentMessage({
@@ -561,6 +679,9 @@ export const AgentMessage = memo(function AgentMessage({
   onQuoteScript,
   onGenerateVideo,
   generating = false,
+  videos = [],
+  onReferenceVideo,
+  focusedVideoTaskId,
 }: AgentMessageProps) {
   // user 角色
   if (message.role !== 'assistant') {
@@ -592,6 +713,29 @@ export const AgentMessage = memo(function AgentMessage({
           </div>
         </div>
         <div className="storyboard-avatar storyboard-avatar--user">你</div>
+      </div>
+    )
+  }
+
+  const videoMetadata = getVideoGenerationMetadata(message)
+  if (videoMetadata) {
+    const task = videos.find((item) => item.taskId === videoMetadata.taskId)
+    const scriptId = task?.scriptId ?? videoMetadata.scriptId
+    const script = scriptId
+      ? scripts.find((item) => item.id === scriptId)
+      : undefined
+    return (
+      <div className="storyboard-row storyboard-row--assistant">
+        <div className="storyboard-avatar storyboard-avatar--assistant"></div>
+        <div className="storyboard-bubble storyboard-bubble--assistant">
+          <VideoGenerationMessageCard
+            metadata={videoMetadata}
+            task={task}
+            script={script}
+            onReferenceVideo={onReferenceVideo}
+            isFocused={focusedVideoTaskId === videoMetadata.taskId}
+          />
+        </div>
       </div>
     )
   }
@@ -651,7 +795,10 @@ export const AgentMessage = memo(function AgentMessage({
               }
               return (
                 <div key={i} className="storyboard-text">
-                  <StreamdownText isStreaming={isStreaming && i === lastTextIdx}>
+                  <StreamdownText
+                    isStreaming={isStreaming && i === lastTextIdx}
+                    unwrapMarkdownFences
+                  >
                     {part.text}
                   </StreamdownText>
                 </div>
@@ -684,6 +831,8 @@ export const AgentMessage = memo(function AgentMessage({
   if (prev.scripts !== next.scripts) return false
   if (prev.assets !== next.assets) return false
   if (prev.generating !== next.generating) return false
+  if (prev.videos !== next.videos) return false
+  if (prev.onReferenceVideo !== next.onReferenceVideo) return false
   if (prev.isLatestAssistant !== next.isLatestAssistant) return false
   if (!next.isStreaming) return true
   return false

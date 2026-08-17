@@ -17,7 +17,7 @@ interface ScriptCardProps {
   generating?: boolean
 }
 
-function MetaTag({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+export function MetaTag({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
   return (
     <span className="lj-meta-tag">
       {icon}
@@ -72,6 +72,15 @@ export const ScriptCard = memo(function ScriptCard({
           <MetaTag icon={<MobileOutlined />}>{parsed.ratio} 竖版</MetaTag>
           <MetaTag icon={<AudioOutlined />}>{parsed.style}</MetaTag>
           <MetaTag icon={<PlayCircleOutlined />}>{parsed.platform}</MetaTag>
+          {parsed.character && (
+            <MetaTag icon={<PlayCircleOutlined />}>
+              {parsed.character.mode === 'user_portrait'
+                ? '主角色：用户上传人像'
+                : parsed.character.mode === 'preset_avatar'
+                  ? `主角色：${parsed.character.presetAlias || parsed.character.roleName || '虚拟人像'}`
+                  : '无人物出镜'}
+            </MetaTag>
+          )}
         </div>
       </div>
 

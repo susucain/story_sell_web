@@ -659,6 +659,19 @@ html {
   white-space: nowrap;
 }
 
+.lj-generation-context__character {
+  flex: 0 1 auto;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 3px 8px;
+  border: 1px solid #d9d5ff;
+  border-radius: 4px;
+  color: var(--lj-text-secondary);
+  font-size: 12px;
+}
+
 .lj-generation-context__assets {
   display: inline-flex;
   flex: 0 0 auto;
@@ -1133,7 +1146,7 @@ html {
 }
 
 .lj-panel-section__title {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--lj-text);
 }
@@ -1180,38 +1193,38 @@ html {
 
 /* 视频任务空状态卡片 */
 .lj-video-empty {
-  background: #eff6ff;
-  border: 1px solid #dbeafe;
-  border-radius: var(--lj-radius);
-  padding: 16px;
+  background: #f0faff;
+  border: 1px solid #bce9f7;
+  border-radius: var(--lj-radius-sm);
+  padding: 13px 14px 12px;
 }
 
 .lj-video-empty__title {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--lj-text);
 }
 
 .lj-video-empty__desc {
   margin-top: 4px;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--lj-text-secondary);
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
 .lj-video-empty__bar {
-  margin-top: 12px;
-  height: 6px;
-  border-radius: 3px;
-  background: #dbeafe;
+  margin-top: 10px;
+  height: 4px;
+  border-radius: 2px;
+  background: #d6f2fa;
   overflow: hidden;
 }
 
 .lj-video-empty__bar span {
   display: block;
-  width: 20%;
+  width: 42%;
   height: 100%;
-  border-radius: 3px;
+  border-radius: inherit;
   background: #06b6d4;
 }
 
@@ -1337,51 +1350,36 @@ html {
 .lj-script-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .lj-script-version {
   display: flex;
-  gap: 10px;
-  padding: 12px;
-  border: 1px solid var(--lj-border-soft);
+  padding: 11px 12px;
+  border: 1px solid #ddd8ff;
   border-radius: var(--lj-radius-sm);
+  background: #f5f3ff;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: border-color 0.15s, background 0.15s;
 }
 
 .lj-script-version:hover {
-  border-color: var(--lj-primary-border);
-  background: var(--lj-primary-bg);
-}
-
-.lj-script-version__badge {
-  width: 32px;
-  height: 32px;
-  border-radius: var(--lj-radius-sm);
-  background: var(--lj-primary);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
+  border-color: #b9b0ff;
+  background: #f0edff;
 }
 
 .lj-script-version__body {
-  flex: 1;
   min-width: 0;
 }
 
 .lj-script-version__title {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--lj-text);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--lj-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
 }
 
 .lj-script-version__meta {
@@ -1389,326 +1387,209 @@ html {
   color: var(--lj-text-tertiary);
 }
 
+.lj-script-message-anchor.is-focused {
+  border-radius: var(--lj-radius-sm);
+  animation: lj-script-message-focus 1.8s ease-out;
+}
+
+@keyframes lj-script-message-focus {
+  0%,
+  45% {
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+  }
+  100% {
+    box-shadow: none;
+  }
+}
+
 /* 视频任务 */
 .lj-video-task-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .lj-video-task {
-  padding: 12px;
-  border: 1px solid var(--lj-border-soft);
+  padding: 13px 14px 12px;
+  border: 1px solid #bce9f7;
   border-radius: var(--lj-radius-sm);
-  background: var(--lj-bg);
-  transition: border-color 0.15s;
+  background: #f0faff;
+  transition: border-color 0.15s, background 0.15s;
 }
 
 .lj-video-task:hover {
-  border-color: var(--lj-primary-border);
+  border-color: #82d7ed;
+  background: #e9f8fd;
+}
+
+.lj-video-task--success {
+  background: #f0fdf7;
+  border-color: #a7ebcb;
+}
+
+.lj-video-task--success:hover {
+  background: #e8faf1;
+  border-color: #69d89f;
+}
+
+.lj-video-task--waiting {
+  background: #fffbeb;
+  border-color: #fde3a4;
+}
+
+.lj-video-task--error {
+  background: #fff5f5;
+  border-color: #fecaca;
 }
 
 .lj-video-task__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+  gap: 10px;
+}
+
+.lj-video-task__status {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #0f7490;
+}
+
+.lj-video-task__icon {
+  display: inline-flex;
+  font-size: 13px;
+  color: #06b6d4;
+}
+
+.lj-video-task--generating .lj-video-task__icon {
+  animation: lj-video-task-spin 1.1s linear infinite;
+}
+
+.lj-video-task--success .lj-video-task__status,
+.lj-video-task--success .lj-video-task__icon {
+  color: #059669;
+}
+
+.lj-video-task--waiting .lj-video-task__status,
+.lj-video-task--waiting .lj-video-task__icon {
+  color: #b7791f;
+}
+
+.lj-video-task--error .lj-video-task__status,
+.lj-video-task--error .lj-video-task__icon {
+  color: var(--lj-danger);
 }
 
 .lj-video-task__id {
   font-size: 12px;
-  font-weight: 500;
-  color: var(--lj-text);
+  white-space: nowrap;
+  color: var(--lj-text-tertiary);
+}
+
+.lj-video-task__desc {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--lj-text-tertiary);
+  line-height: 1.5;
+}
+
+.lj-video-task__bar {
+  height: 4px;
+  margin-top: 10px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: #d6f2fa;
+}
+
+.lj-video-task__bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #06b6d4;
+  transition: width 0.3s ease;
+}
+
+.lj-video-task__bar span.is-active {
+  animation: lj-video-task-progress 1.8s ease-in-out infinite;
+}
+
+.lj-video-task--success .lj-video-task__bar {
+  background: #d7f7e5;
+}
+
+.lj-video-task--success .lj-video-task__bar span {
+  background: #10b981;
+}
+
+.lj-video-task--waiting .lj-video-task__bar {
+  background: #fff0c9;
+}
+
+.lj-video-task--waiting .lj-video-task__bar span {
+  background: #f59e0b;
+}
+
+.lj-video-task--error .lj-video-task__bar {
+  background: #fee2e2;
+}
+
+.lj-video-task--error .lj-video-task__bar span {
+  background: #ef4444;
+}
+
+.lj-video-task__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 .lj-video-task__time {
   font-size: 11px;
   color: var(--lj-text-tertiary);
-  margin-top: 6px;
 }
 
 .lj-video-task__view {
-  padding: 0 !important;
-  font-size: 12px !important;
-  height: auto !important;
-  margin-top: 4px;
-}
-
-.lj-video-task__error {
   font-size: 11px;
-  color: var(--lj-danger);
-  margin-top: 4px;
-}
-
-/* ============================================
-   视频预览
-   ============================================ */
-.lj-video-preview {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.lj-vp__topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 24px;
-  border-bottom: 1px solid var(--lj-border-soft);
-  flex-shrink: 0;
-}
-
-.lj-vp__breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-}
-
-.lj-vp__crumb {
-  color: var(--lj-text-tertiary);
-}
-
-.lj-vp__crumb--active {
-  color: var(--lj-text);
-  font-weight: 500;
-}
-
-.lj-vp__sep {
-  color: var(--lj-text-tertiary);
-}
-
-.lj-vp__topbar-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.lj-vp__content {
-  flex: 1;
-  display: flex;
-  gap: 24px;
-  padding: 24px;
-  overflow: hidden;
-}
-
-/* 左侧播放器 */
-.lj-vp__player-side {
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.lj-vp__player {
-  position: relative;
-  width: 280px;
-  border-radius: var(--lj-radius-lg);
-  overflow: hidden;
-  box-shadow: var(--lj-shadow-md);
-  background: #000;
-}
-
-.lj-vp__video {
-  width: 100%;
-  display: block;
-  max-height: 500px;
-}
-
-.lj-vp__placeholder {
-  width: 280px;
-  height: 500px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--lj-bg-section);
-}
-
-.lj-vp__placeholder-icon {
-  font-size: 48px;
-  color: var(--lj-text-tertiary);
-}
-
-.lj-vp__player-meta {
-  position: absolute;
-  bottom: 8px;
-  right: 8px;
-  background: rgba(0, 0, 0, 0.6);
-  color: #fff;
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 4px;
-  pointer-events: none;
-}
-
-.lj-vp__status-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  max-width: 280px;
-}
-
-.lj-status-tag.ant-tag {
-  margin: 0;
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 4px;
-  background: var(--lj-bg-section);
-  border-color: var(--lj-border);
-  color: var(--lj-text-secondary);
-}
-
-/* 右侧时间轴 */
-.lj-vp__timeline-side {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  min-width: 0;
-}
-
-.lj-vp__timeline-head {
-  margin-bottom: 16px;
-  flex-shrink: 0;
-}
-
-.lj-vp__timeline-head h4 {
-  font-size: 15px;
   font-weight: 600;
-  color: var(--lj-text);
-  margin: 0 0 4px;
-}
-
-.lj-vp__timeline-head p {
-  font-size: 12px;
-  color: var(--lj-text-tertiary);
-}
-
-.lj-vp__shots {
-  flex: 1;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 16px;
-}
-
-.lj-vp-shot {
-  display: flex;
-  gap: 12px;
-  padding: 12px;
-  border: 1px solid var(--lj-border-soft);
-  border-radius: var(--lj-radius-sm);
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.lj-vp-shot:hover {
-  border-color: var(--lj-primary-border);
-  background: var(--lj-bg-soft);
-}
-
-.lj-vp-shot.active {
-  border-color: var(--lj-primary);
-  background: var(--lj-primary-bg);
-}
-
-.lj-vp-shot.playing {
-  border-color: var(--lj-success);
-  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.15);
-}
-
-.lj-vp-shot__time {
-  font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
-  font-size: 11px;
-  color: var(--lj-text-tertiary);
+  color: #059669;
   white-space: nowrap;
-  flex-shrink: 0;
-  padding-top: 1px;
 }
 
-.lj-vp-shot__body {
-  flex: 1;
-  min-width: 0;
+@keyframes lj-video-task-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
-.lj-vp-shot__title-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 4px;
-}
-
-.lj-vp-shot__title {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--lj-text);
-}
-
-.lj-vp-shot__desc {
-  font-size: 12px;
-  color: var(--lj-text-secondary);
-  line-height: 1.5;
-}
-
-/* 编辑面板 */
-.lj-vp-edit {
-  padding: 16px;
-  border: 1px solid var(--lj-primary-border);
-  border-radius: var(--lj-radius);
-  background: var(--lj-primary-bg);
-  flex-shrink: 0;
-}
-
-.lj-vp-edit__head {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--lj-primary);
-  margin-bottom: 10px;
-}
-
-.lj-vp-edit__input.ant-input {
-  border-radius: var(--lj-radius-sm);
-  font-size: 13px;
-  resize: none;
-}
-
-.lj-vp-edit__actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.lj-vp-edit__note {
-  font-size: 11px;
-  color: var(--lj-text-tertiary);
-  margin: 8px 0 0;
+@keyframes lj-video-task-progress {
+  50% {
+    opacity: 0.72;
+  }
 }
 
 /* ===== 滚动条 ===== */
 .lj-sidebar__list::-webkit-scrollbar,
 .lj-messages::-webkit-scrollbar,
-.lj-right-panel__body::-webkit-scrollbar,
-.lj-vp__shots::-webkit-scrollbar {
+.lj-right-panel__body::-webkit-scrollbar {
   width: 5px;
 }
 
 .lj-sidebar__list::-webkit-scrollbar-thumb,
 .lj-messages::-webkit-scrollbar-thumb,
-.lj-right-panel__body::-webkit-scrollbar-thumb,
-.lj-vp__shots::-webkit-scrollbar-thumb {
+.lj-right-panel__body::-webkit-scrollbar-thumb {
   background: var(--lj-border);
   border-radius: 3px;
 }
 
 .lj-sidebar__list::-webkit-scrollbar-track,
 .lj-messages::-webkit-scrollbar-track,
-.lj-right-panel__body::-webkit-scrollbar-track,
-.lj-vp__shots::-webkit-scrollbar-track {
+.lj-right-panel__body::-webkit-scrollbar-track {
   background: transparent;
 }
 
@@ -1716,12 +1597,6 @@ html {
 @media (max-width: 1200px) {
   .lj-right-panel {
     width: 280px;
-  }
-}
-
-@media (max-width: 1024px) {
-  .lj-vp__content {
-    flex-direction: column;
   }
 }
 

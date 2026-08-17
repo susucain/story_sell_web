@@ -1,4 +1,4 @@
-export type ProcessStatus = 'pending' | 'running' | 'completed' | 'error' | 'skipped'
+export type ProcessStatus = 'pending' | 'running' | 'waiting_for_user' | 'completed' | 'error' | 'skipped'
 
 export interface ProcessItem {
   id: string
@@ -22,7 +22,7 @@ export interface ProcessAction {
   id: string
   title: string
   description?: string
-  status: 'pending' | 'running' | 'completed' | 'error'
+  status: 'pending' | 'running' | 'waiting_for_user' | 'completed' | 'error'
 }
 
 export interface ProcessOutput {

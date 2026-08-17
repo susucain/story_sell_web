@@ -15,12 +15,28 @@ export type StreamdownTextProps = {
   children: string
   /** 助手最后一段文本在流式输出时为 true，用于 Streamdown 动画与未闭合 Markdown */
   isStreaming?: boolean
+  /** 将模型用于包裹成品内容的 markdown/md 围栏作为正文渲染 */
+  unwrapMarkdownFences?: boolean
+}
+
+const markdownFencePattern =
+  /(^|\n)[\t ]*```(?:markdown|md)[\t ]*\n([\s\S]*?)\n[\t ]*```(?=\n|$)/gi
+
+function unwrapMarkdownFences(content: string) {
+  return content.replace(markdownFencePattern, (_, prefix: string, body: string) => (
+    `${prefix}${body}`
+  ))
 }
 
 function StreamdownTextInner({
   children,
   isStreaming = false,
+  unwrapMarkdownFences: shouldUnwrapMarkdownFences = false,
 }: StreamdownTextProps) {
+  const content = shouldUnwrapMarkdownFences
+    ? unwrapMarkdownFences(children)
+    : children
+
   return (
     <div className="chat-streamdown">
       <Streamdown
@@ -32,12 +48,14 @@ function StreamdownTextInner({
         controls={streamdownControls}
         className="chat-streamdown__inner"
       >
-        {children}
+        {content}
       </Streamdown>
     </div>
   )
 }
 
 export const StreamdownText = memo(StreamdownTextInner, (prev, next) => {
-  return prev.children === next.children && prev.isStreaming === next.isStreaming
+  return prev.children === next.children
+    && prev.isStreaming === next.isStreaming
+    && prev.unwrapMarkdownFences === next.unwrapMarkdownFences
 })

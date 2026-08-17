@@ -1,5 +1,5 @@
 import { memo, useState } from 'react'
-import { Button, Tag, Progress, Popconfirm, Tooltip } from 'antd'
+import { Button, Popconfirm, Tooltip } from 'antd'
 import {
   PlusOutlined,
   FileTextOutlined,
@@ -31,18 +31,50 @@ interface RightPanelProps {
 
 export type TabKey = 'assets' | 'scripts' | 'videos'
 
-function statusMeta(status: string): { text: string; color: string; icon: React.ReactNode } {
+function statusMeta(status: string): { text: string; description: string; tone: string; icon: React.ReactNode } {
   switch (status) {
     case 'succeeded':
-      return { text: '生成成功', color: '#10b981', icon: <CheckCircleFilled /> }
+      return {
+        text: '视频已生成',
+        description: '成片已准备完成，可随时预览。',
+        tone: 'success',
+        icon: <CheckCircleFilled />,
+      }
     case 'running':
-      return { text: '生成中', color: '#6366f1', icon: <LoadingOutlined /> }
+      return {
+        text: '正在生成视频',
+        description: 'AI 正在合成画面与音轨，请稍候。',
+        tone: 'generating',
+        icon: <LoadingOutlined />,
+      }
+    case 'persisting':
+      return {
+        text: '正在保存视频',
+        description: '视频已完成合成，正在保存成片。',
+        tone: 'generating',
+        icon: <LoadingOutlined />,
+      }
     case 'queued':
-      return { text: '排队中', color: '#f59e0b', icon: <ClockCircleOutlined /> }
+      return {
+        text: '等待开始生成',
+        description: '任务已提交，正在等待可用的生成资源。',
+        tone: 'waiting',
+        icon: <ClockCircleOutlined />,
+      }
     case 'failed':
-      return { text: '生成失败', color: '#ef4444', icon: <ExclamationCircleOutlined /> }
+      return {
+        text: '视频生成失败',
+        description: '任务未能完成，请检查后重新发起。',
+        tone: 'error',
+        icon: <ExclamationCircleOutlined />,
+      }
     default:
-      return { text: status, color: '#9ca3af', icon: <ClockCircleOutlined /> }
+      return {
+        text: status,
+        description: '任务状态正在更新。',
+        tone: 'waiting',
+        icon: <ClockCircleOutlined />,
+      }
   }
 }
 
@@ -233,21 +265,41 @@ export const RightPanel = memo(function RightPanel({
               <div className="lj-script-list">
                 {displayedScripts.map((script) => {
                   const isCurrent = script.id === currentScriptId
+                  const relatedTasks = videos.filter((task) => task.scriptId === script.id)
+                  const hasSucceededVideo = relatedTasks.some((task) => task.status === 'succeeded')
+                  const hasActiveVideo = relatedTasks.some(
+                    (task) => task.status === 'queued'
+                      || task.status === 'running'
+                      || task.status === 'persisting',
+                  )
+                  const hasFailedVideo = relatedTasks.length > 0
+                    && relatedTasks.every(
+                      (task) => ['failed', 'expired', 'cancelled'].includes(task.status),
+                    )
+                  const videoStatusText = hasSucceededVideo
+                    ? '已生成视频'
+                    : hasActiveVideo
+                      ? '正在生成视频'
+                      : hasFailedVideo
+                        ? '视频生成失败'
+                        : script.status === 'used_for_video'
+                          ? '已提交视频生成'
+                          : '尚未生成视频'
                   return (
                     <div
                       className={`lj-script-version ${isCurrent ? 'current' : ''}`}
                       key={script.id}
                       onClick={() => onSelectScript?.(script)}
                     >
-                      <div className="lj-script-version__badge">V{script.version}</div>
                       <div className="lj-script-version__body">
-                        <div className="lj-script-version__title">{script.title}</div>
+                        <div className="lj-script-version__title">
+                          V{script.version} · {isCurrent ? '当前脚本' : '脚本版本'}
+                        </div>
                         <div className="lj-script-version__meta">
                           {script.shots.length} 个镜头 ·{' '}
-                          {script.status === 'used_for_video' ? '已生成视频' : '尚未生成视频'}
+                          {videoStatusText}
                         </div>
                       </div>
-                      {isCurrent && <span className="lj-script-version__current">当前</span>}
                     </div>
                   )
                 })}
@@ -276,46 +328,43 @@ export const RightPanel = memo(function RightPanel({
               <div className="lj-video-task-list">
                 {videos.map((task) => {
                   const meta = statusMeta(task.status)
-                  const isActive = task.status === 'queued' || task.status === 'running'
+                  const isActive = task.status === 'queued'
+                    || task.status === 'running'
+                    || task.status === 'persisting'
+                  const progress = task.status === 'persisting' ? 85 : task.status === 'running' ? 60 : 20
                   return (
                     <div
-                      className="lj-video-task"
+                      className={`lj-video-task lj-video-task--${meta.tone}`}
                       key={task.id}
                       onClick={() => task.status === 'succeeded' && onSelectVideo?.(task)}
                       style={{ cursor: task.status === 'succeeded' ? 'pointer' : 'default' }}
                     >
                       <div className="lj-video-task__head">
+                        <div className="lj-video-task__status">
+                          <span className="lj-video-task__icon">{meta.icon}</span>
+                          <span>{meta.text}</span>
+                        </div>
                         <span className="lj-video-task__id">任务 #{task.id}</span>
-                        <Tag
-                          style={{
-                            color: meta.color,
-                            borderColor: meta.color,
-                            background: `${meta.color}14`,
-                            fontSize: 11,
-                            margin: 0,
-                          }}
-                        >
-                          {meta.icon} {meta.text}
-                        </Tag>
                       </div>
-                      {isActive && (
-                        <Progress
-                          percent={task.status === 'running' ? 60 : 20}
-                          showInfo={false}
-                          strokeColor="#6366f1"
-                          trailColor="#eef2ff"
-                          size="small"
+                      <div className="lj-video-task__desc">
+                        {task.status === 'failed' && task.errorMessage
+                          ? task.errorMessage
+                          : meta.description}
+                      </div>
+                      <div className="lj-video-task__bar" aria-hidden="true">
+                        <span
+                          className={isActive ? 'is-active' : ''}
+                          style={{ width: `${task.status === 'succeeded' ? 100 : progress}%` }}
                         />
-                      )}
-                      <div className="lj-video-task__time">{formatTime(task.createdAt)}</div>
-                      {task.status === 'succeeded' && task.generatedVideoUrl && (
-                        <Button size="small" type="link" className="lj-video-task__view">
-                          点击预览视频 →
-                        </Button>
-                      )}
-                      {task.status === 'failed' && task.errorMessage && (
-                        <div className="lj-video-task__error">{task.errorMessage}</div>
-                      )}
+                      </div>
+                      <div className="lj-video-task__footer">
+                        <span className="lj-video-task__time">{formatTime(task.createdAt)}</span>
+                        {task.status === 'succeeded' && task.generatedVideoUrl && (
+                          <span className="lj-video-task__view">
+                            预览成片 <VideoCameraOutlined />
+                          </span>
+                        )}
+                      </div>
                     </div>
                   )
                 })}

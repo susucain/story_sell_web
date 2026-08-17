@@ -45,7 +45,18 @@ export interface ScriptMeta {
   platform?: string
   description?: string
   hashtags?: string[]
+  character?: CharacterMeta
   edit?: VideoEditMeta
+}
+
+export interface CharacterMeta {
+  mode: 'user_portrait' | 'preset_avatar' | 'none'
+  roleName?: string
+  rolePrompt?: string
+  primaryAssetId?: number
+  presetAvatarId?: string
+  presetAlias?: string
+  selectionSource: 'user_explicit' | 'auto_selected' | 'inherited'
 }
 
 export interface VideoEditMeta {
@@ -82,6 +93,7 @@ export interface AssetItem {
   userId: number
   assetType: 'image' | 'video' | 'url'
   assetPurpose: 'analysis' | 'reference'
+  contentCategory: 'portrait' | 'product' | 'food' | 'store' | 'environment' | 'other' | null
   name: string
   url: string
   thumbnailUrl: string | null
@@ -115,9 +127,9 @@ export interface VideoTaskItem {
 }
 
 /** 视频任务状态枚举 */
-export type TaskStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'expired' | 'cancelled'
+export type TaskStatus = 'queued' | 'running' | 'persisting' | 'succeeded' | 'failed' | 'expired' | 'cancelled'
 
-/** 前端用于 ScriptCard / VideoPreview 的统一分镜结构 */
+/** 前端用于 ScriptCard / 视频消息预览的统一分镜结构 */
 export interface ParsedStoryboard {
   id: number
   version: number
@@ -128,6 +140,7 @@ export interface ParsedStoryboard {
   ratio: string
   style: string
   platform: string
+  character?: CharacterMeta
   edit?: VideoEditMeta
   rawMarkdown: string
 }
@@ -135,6 +148,16 @@ export interface ParsedStoryboard {
 /** 把后端 ScriptVersion 转成前端 ParsedStoryboard */
 export function toParsedStoryboard(script: ScriptVersion): ParsedStoryboard {
   const meta = script.meta ?? {}
+  const fallbackEditShot: StoryboardShot | undefined = meta.edit && script.shots.length === 0
+    ? {
+      shot: 1,
+      time: `${meta.edit.targetStartSec}-${meta.edit.targetEndSec}s`,
+      scene: '视频局部编辑',
+      visual: meta.description || '仅修改指定时间段，其余画面保持原视频不变',
+      audio: meta.edit.preserveAudio ? '保留原视频音频' : '',
+    }
+    : undefined
+  const shots = fallbackEditShot ? [fallbackEditShot] : script.shots
   const maxEnd = script.shots.reduce((max, s) => {
     const nums = s.time.match(/\d+/g)
     const end = nums && nums.length >= 2 ? parseInt(nums[1], 10) : 0
@@ -145,11 +168,12 @@ export function toParsedStoryboard(script: ScriptVersion): ParsedStoryboard {
     version: script.version,
     title: script.title,
     description: meta.description || script.hook || '',
-    shots: script.shots,
+    shots,
     totalDuration: meta.edit?.sourceDurationSec || meta.duration || maxEnd || 15,
     ratio: meta.ratio || '9:16',
     style: meta.style || '真实口播',
     platform: meta.platform || '抖音/小红书',
+    character: meta.character,
     edit: meta.edit,
     rawMarkdown: script.scriptMarkdown,
   }
