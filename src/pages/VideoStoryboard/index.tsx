@@ -930,7 +930,7 @@ export default function VideoStoryboard() {
                 return (
                   <div
                     key={msg.id || index}
-                    className={`lj-script-message-anchor${scriptId === focusedScriptId ? ' is-focused' : ''}`}
+                    className={`lj-script-message-anchor${focusedScriptId !== undefined && scriptId === focusedScriptId ? ' is-focused' : ''}`}
                     data-script-id={scriptId}
                   >
                     <AgentMessage
