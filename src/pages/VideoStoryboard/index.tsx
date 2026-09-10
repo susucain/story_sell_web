@@ -202,6 +202,7 @@ export default function VideoStoryboard() {
   const [panelTab, setPanelTab] = useState<'assets' | 'scripts' | 'videos'>('assets')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const refreshAfterChatRef = useRef(false)
 
   const {
     sessions,
@@ -340,9 +341,10 @@ export default function VideoStoryboard() {
     return () => cancelAnimationFrame(animationFrame)
   }, [messages, status])
 
-  // 发送完成后刷新数据
+  // 仅在当前用户发送的对话完成后刷新，避免历史消息初始加载触发重复请求。
   useEffect(() => {
-    if (status === 'ready' && messages.length > 0) {
+    if (status === 'ready' && refreshAfterChatRef.current) {
+      refreshAfterChatRef.current = false
       const timer = setTimeout(() => {
         loadSessions()
         loadAssets()
@@ -351,7 +353,7 @@ export default function VideoStoryboard() {
       }, 800)
       return () => clearTimeout(timer)
     }
-  }, [status, messages.length, loadSessions, loadAssets, loadScripts, loadVideos])
+  }, [status, loadSessions, loadAssets, loadScripts, loadVideos])
 
   // ===== 派生数据 =====
   const latestScript = useMemo(() => {
@@ -410,6 +412,7 @@ export default function VideoStoryboard() {
     setReferencedScriptId(undefined)
     setReferencedVideoAsset(null)
     setGenerationScriptId(undefined)
+    refreshAfterChatRef.current = false
     setAssets([])
     setScripts([])
     setVideos([])
@@ -428,6 +431,7 @@ export default function VideoStoryboard() {
     setReferencedScriptId(undefined)
     setReferencedVideoAsset(null)
     setGenerationScriptId(undefined)
+    refreshAfterChatRef.current = false
   }
 
   // ===== 文件上传 =====
@@ -553,17 +557,23 @@ export default function VideoStoryboard() {
       purpose: img.assetPurpose,
       durationSec: img.durationSec,
     }))
-    await sendMessage(
-      { text: prompt, files },
-      {
-        body: {
-          session_id: sessionId,
-          referenced_script_id: referencedScriptId,
-          source_video_asset_id: referencedVideoAsset?.id,
-          user_id: FALLBACK_USER_ID,
+    refreshAfterChatRef.current = true
+    try {
+      await sendMessage(
+        { text: prompt, files },
+        {
+          body: {
+            session_id: sessionId,
+            referenced_script_id: referencedScriptId,
+            source_video_asset_id: referencedVideoAsset?.id,
+            user_id: FALLBACK_USER_ID,
+          },
         },
-      },
-    )
+      )
+    } catch (err) {
+      refreshAfterChatRef.current = false
+      throw err
+    }
     setPrompt('')
     setImages([])
   }
