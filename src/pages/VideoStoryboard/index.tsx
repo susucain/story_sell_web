@@ -72,7 +72,7 @@ interface UploadedImage {
   url: string
   mediaType: string
   name: string
-  assetPurpose: 'analysis' | 'reference'
+  assetPurpose: 'all' | 'analysis' | 'reference'
   durationSec?: number
   uploading?: boolean
 }
@@ -374,7 +374,7 @@ export default function VideoStoryboard() {
     [scripts, generationScriptId],
   )
   const referenceAssets = useMemo(
-    () => assets.filter((asset) => asset.assetPurpose === 'reference'),
+    () => assets.filter((asset) => ['reference', 'all'].includes(asset.assetPurpose)),
     [assets],
   )
   const referenceAssetSummary = useMemo(() => {
@@ -390,7 +390,7 @@ export default function VideoStoryboard() {
     }
 
     for (const image of images) {
-      if (image.assetPurpose !== 'reference' || urls.has(image.url)) continue
+      if (!['reference', 'all'].includes(image.assetPurpose) || urls.has(image.url)) continue
       urls.add(image.url)
       if (image.mediaType.startsWith('video/')) videoCount += 1
       else imageCount += 1
@@ -456,7 +456,7 @@ export default function VideoStoryboard() {
         url: tempUrl,
         mediaType,
         name: file.name,
-        assetPurpose: generationScriptId ? 'reference' : 'analysis',
+        assetPurpose: 'all',
         durationSec,
         uploading: true,
       },
@@ -499,7 +499,7 @@ export default function VideoStoryboard() {
     const name = url.split('/').pop() || '网络素材'
     setImages((prev) => [
       ...prev,
-      { id, url, mediaType, name, assetPurpose: generationScriptId ? 'reference' : 'analysis' },
+      { id, url, mediaType, name, assetPurpose: 'all' },
     ])
     setImageUrlInput('')
 
@@ -530,7 +530,7 @@ export default function VideoStoryboard() {
 
   const handleUpdateAssetPurpose = useCallback(async (
     asset: AssetItem,
-    assetPurpose: 'analysis' | 'reference',
+    assetPurpose: 'all' | 'analysis' | 'reference',
   ) => {
     try {
       await updateAssetPurpose(asset.id, assetPurpose)
@@ -625,7 +625,7 @@ export default function VideoStoryboard() {
         session_id: sessionId,
         user_id: FALLBACK_USER_ID,
         asset_type: 'video',
-        asset_purpose: 'reference',
+        asset_purpose: 'all',
         name: '已生成视频（局部修改原片）',
         url: task.generatedVideoUrl,
         duration_sec: durationSec,
@@ -965,7 +965,7 @@ export default function VideoStoryboard() {
             </div>
 
             {/* 输入区域 */}
-            <div className="lj-input-area">
+            <div className={`lj-input-area${busy ? ' is-busy' : ''}`}>
               <div className="lj-input-composer">
                 {referencedScript && (
                   <div className="lj-reference-bar">
@@ -1112,9 +1112,24 @@ export default function VideoStoryboard() {
                       </Tooltip> */}
                     </div>
 
+                    {busy && (
+                      <span className="lj-input-status">
+                        <span className="lj-input-status__dot" />
+                        正在处理
+                      </span>
+                    )}
+
                     <div className="lj-send-btn">
                       {busy ? (
-                        <Button danger onClick={() => stop()}>停止</Button>
+                        <Tooltip title="停止本轮处理">
+                          <Button
+                            aria-label="停止本轮处理"
+                            className="lj-stop-btn"
+                            onClick={() => stop()}
+                          >
+                            <span className="lj-stop-btn__mark" aria-hidden="true" />
+                          </Button>
+                        </Tooltip>
                       ) : (
                           <Button
                           type="primary"

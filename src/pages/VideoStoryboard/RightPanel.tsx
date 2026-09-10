@@ -24,7 +24,7 @@ interface RightPanelProps {
   onTabChange: (tab: TabKey) => void
   onAddAsset?: () => void
   onDeleteAsset?: (asset: AssetItem) => void
-  onUpdateAssetPurpose?: (asset: AssetItem, purpose: 'analysis' | 'reference') => void
+  onUpdateAssetPurpose?: (asset: AssetItem, purpose: 'analysis' | 'reference' | 'all') => void
   onSelectScript?: (script: ScriptVersion) => void
   onSelectVideo?: (video: VideoTaskItem) => void
 }
@@ -119,8 +119,9 @@ export const RightPanel = memo(function RightPanel({
   const [showAllScripts, setShowAllScripts] = useState(false)
 
   const displayedScripts = showAllScripts ? scripts : scripts.slice(0, 3)
-  const referenceAssets = assets.filter((asset) => asset.assetPurpose === 'reference')
+  const referenceAssets = assets.filter((asset) => asset.assetPurpose !== 'analysis')
   const analysisAssets = assets.filter((asset) => asset.assetPurpose === 'analysis')
+  const hasAnalysisOnlyAssets = analysisAssets.length > 0
 
   const renderAssetCard = (asset: AssetItem) => (
     <div className="lj-asset-card" key={asset.id}>
@@ -149,14 +150,14 @@ export const RightPanel = memo(function RightPanel({
       </div>
       <div className="lj-asset-card__actions">
         {onUpdateAssetPurpose && (
-          <Tooltip title={asset.assetPurpose === 'reference' ? '设为仅用于脚本分析' : '设为用于视频生成'}>
+          <Tooltip title={asset.assetPurpose === 'analysis' ? '恢复为分析和生成参考' : '设为仅用于脚本分析'}>
             <Button
               type="text"
               size="small"
               icon={<SwapOutlined />}
               onClick={() => onUpdateAssetPurpose(
                 asset,
-                asset.assetPurpose === 'reference' ? 'analysis' : 'reference',
+                asset.assetPurpose === 'analysis' ? 'all' : 'analysis',
               )}
             />
           </Tooltip>
@@ -222,25 +223,29 @@ export const RightPanel = memo(function RightPanel({
                 <PictureOutlined className="lj-empty-icon" />
                 <p>暂无素材，上传图片或视频后自动解析</p>
               </div>
-            ) : (
-              <>
+            ) : hasAnalysisOnlyAssets ? (
+                <>
                 <div className="lj-asset-group">
-                  <div className="lj-asset-group__title">
+                  {/* <div className="lj-asset-group__title">
                     参考素材 <span>将用于视频生成 · {referenceAssets.length}</span>
-                  </div>
+                  </div> */}
                   <div className="lj-asset-grid">
                     {referenceAssets.map(renderAssetCard)}
                   </div>
                 </div>
                 <div className="lj-asset-group">
                   <div className="lj-asset-group__title">
-                    分析素材 <span>仅用于脚本分析 · {analysisAssets.length}</span>
+                    分析素材 <span>仅用于脚本分析</span>
                   </div>
                   <div className="lj-asset-grid">
                     {analysisAssets.map(renderAssetCard)}
                   </div>
                 </div>
-              </>
+                </>
+              ) : (
+                <div className="lj-asset-grid">
+                  {assets.map(renderAssetCard)}
+                </div>
             )}
           </div>
         )}

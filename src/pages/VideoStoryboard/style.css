@@ -579,6 +579,16 @@ html {
   box-shadow: 0 0 0 3px rgba(91, 61, 245, 0.12);
 }
 
+.lj-input-area.is-busy .lj-input-composer {
+  border-color: #dfe2eb;
+  box-shadow: none;
+}
+
+.lj-input-area.is-busy .lj-textarea.ant-input {
+  background: transparent;
+  color: #8b93a1;
+}
+
 .lj-reference-bar {
   display: inline-flex;
   align-items: center;
@@ -791,6 +801,54 @@ html {
   align-items: center;
   gap: 4px;
   flex-shrink: 0;
+}
+
+.lj-input-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #667085;
+  font-size: 11px;
+}
+
+.lj-input-status__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #4fd1a1;
+  animation: lj-input-status-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes lj-input-status-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.lj-stop-btn.ant-btn {
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  padding: 0;
+  border-color: #d9dde5;
+  border-radius: 4px;
+  background: #f7f8fa;
+  color: #667085;
+  box-shadow: none;
+}
+
+.lj-stop-btn.ant-btn:hover {
+  border-color: #475467;
+  background: #eef1f5;
+  color: #475467;
+}
+
+.lj-stop-btn__mark {
+  display: block;
+  width: 8px;
+  height: 8px;
+  border-radius: 1px;
+  background: currentColor;
 }
 
 .lj-text-btn {

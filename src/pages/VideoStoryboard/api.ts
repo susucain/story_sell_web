@@ -39,7 +39,7 @@ export interface CreateAssetBody {
   session_id: string
   user_id?: number
   asset_type: 'image' | 'video' | 'url'
-  asset_purpose: 'analysis' | 'reference'
+  asset_purpose?: 'all' | 'analysis' | 'reference'
   name: string
   url: string
   thumbnail_url?: string
@@ -63,7 +63,7 @@ export function deleteAsset(assetId: number): Promise<{ success: boolean }> {
 
 export function updateAssetPurpose(
   assetId: number,
-  assetPurpose: 'analysis' | 'reference',
+  assetPurpose: 'all' | 'analysis' | 'reference',
 ): Promise<AssetItem> {
   return fetchJson<AssetItem>(`${BASE}/assets/${assetId}`, {
     method: 'PATCH',

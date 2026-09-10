@@ -92,7 +92,7 @@ export interface AssetItem {
   sessionId: string
   userId: number
   assetType: 'image' | 'video' | 'url'
-  assetPurpose: 'analysis' | 'reference'
+  assetPurpose: 'all' | 'analysis' | 'reference'
   contentCategory: 'portrait' | 'product' | 'food' | 'store' | 'environment' | 'other' | null
   name: string
   url: string

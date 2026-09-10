@@ -38,7 +38,7 @@ export const ScriptCard = memo(function ScriptCard({
   const sourceVideo = videoEdit
     ? assets.find((asset) => asset.id === videoEdit.sourceAssetId)
     : undefined
-  const analysisAssets = assets.filter((a) => a.assetPurpose === 'analysis')
+  const analysisAssets = assets.filter((a) => ['analysis', 'all'].includes(a.assetPurpose))
   const imageCount = analysisAssets.filter((a) => a.assetType === 'image').length
   const videoCount = analysisAssets.filter((a) => a.assetType === 'video').length
 
