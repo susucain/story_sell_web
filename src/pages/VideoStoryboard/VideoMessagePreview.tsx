@@ -61,7 +61,7 @@ export function VideoMessagePreview({ videoTask, parsed }: VideoMessagePreviewPr
           </MetaTag>
           <MetaTag icon={<MobileOutlined />}>{videoTask.ratio}</MetaTag>
           <MetaTag icon={<PlayCircleOutlined />}>{videoTask.resolution}</MetaTag>
-          {parsed.character && (
+          {parsed?.character && (
             <MetaTag icon={<AudioOutlined />}>
               {parsed.character.mode === 'user_portrait'
                 ? '主角色：用户上传人像'

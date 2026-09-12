@@ -72,7 +72,7 @@ export const ScriptCard = memo(function ScriptCard({
           <MetaTag icon={<MobileOutlined />}>{parsed.ratio} 竖版</MetaTag>
           <MetaTag icon={<AudioOutlined />}>{parsed.style}</MetaTag>
           <MetaTag icon={<PlayCircleOutlined />}>{parsed.platform}</MetaTag>
-          {parsed.character && (
+          {parsed?.character && (
             <MetaTag icon={<PlayCircleOutlined />}>
               {parsed.character.mode === 'user_portrait'
                 ? '主角色：用户上传人像'
