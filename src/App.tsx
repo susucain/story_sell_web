@@ -4,6 +4,9 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 // import FileUpload from './pages/FileUpload'
 // import FileList from './pages/FileList'
 import VideoStoryboard from './pages/VideoStoryboard'
+import { AuthPage } from './pages/Auth/AuthPage'
+import { RequireAuth } from './auth/RequireAuth'
+import { PublicOnly } from './auth/PublicOnly'
 import './App.css'
 
 // const { Header, Content } = Layout
@@ -17,8 +20,13 @@ import './App.css'
 export default function App() {
   return (
     <Routes>
-      {/* 仅保留视频分镜页面，其余路由重定向到此 */}
-      <Route path="/life-video" element={<VideoStoryboard />} />
+      <Route element={<PublicOnly />}>
+        <Route path="/login" element={<AuthPage mode="login" />} />
+        <Route path="/register" element={<AuthPage mode="register" />} />
+      </Route>
+      <Route element={<RequireAuth />}>
+        <Route path="/life-video" element={<VideoStoryboard />} />
+      </Route>
       <Route path="*" element={<Navigate to="/life-video" replace />} />
     </Routes>
   )

@@ -4,7 +4,7 @@ import type { SessionSummary } from './types'
 
 const SEARCH_DEBOUNCE_MS = 300
 
-export function useSessionList(userId: number, pageSize: number) {
+export function useSessionList(pageSize: number) {
   const [sessions, setSessions] = useState<SessionSummary[]>([])
   const [hasMore, setHasMore] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -26,7 +26,7 @@ export function useSessionList(userId: number, pageSize: number) {
     setError(false)
 
     try {
-      const data = await fetchSessions(userId, page, pageSize, keyword, controller.signal)
+      const data = await fetchSessions(page, pageSize, keyword, controller.signal)
       if (requestId !== requestIdRef.current) return
 
       data.items.forEach((session) => {
@@ -45,7 +45,7 @@ export function useSessionList(userId: number, pageSize: number) {
     } finally {
       if (requestId === requestIdRef.current) setLoading(false)
     }
-  }, [keyword, pageSize, userId])
+  }, [keyword, pageSize])
 
   const refresh = useCallback(() => loadPage(1, false), [loadPage])
 

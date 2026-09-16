@@ -38,10 +38,14 @@ import {
 } from './api'
 import { useSessionList } from './useSessionList'
 import { createSessionId } from './session-id'
+import { getAccessToken } from '../../auth/auth-token'
+import { apiFetch } from '../../lib/api-fetch'
+import { useAuth } from '../../auth/auth-context'
+import { UserMenu } from '../../components/UserMenu/UserMenu'
+import { useNavigate } from 'react-router-dom'
 import './style.css'
 
 const STORAGE_KEY = 'video_storyboard_session_id'
-const FALLBACK_USER_ID = 1
 const SESSION_PAGE_SIZE = 20
 const CHAT_UPDATE_THROTTLE_MS = 80
 function getOrCreateSessionId(): string {
@@ -62,6 +66,10 @@ class LatestMessageOnlyTransport extends DefaultChatTransport<UIMessage> {
     const latestMessage = messages[messages.length - 1]
     return super.sendMessages({
       ...rest,
+      headers: {
+        ...rest.headers,
+        ...(getAccessToken() ? { Authorization: `Bearer ${getAccessToken()}` } : {}),
+      },
       messages: latestMessage ? [latestMessage] : [],
     })
   }
@@ -185,6 +193,8 @@ function getGeneratedScriptIdFromMessage(message: UIMessage<Metadata>): number |
 }
 
 export default function VideoStoryboard() {
+  const { logout, user } = useAuth()
+  const navigate = useNavigate()
   const [sessionId, setSessionId] = useState(() => getOrCreateSessionId())
   const [images, setImages] = useState<UploadedImage[]>([])
   const [prompt, setPrompt] = useState('')
@@ -214,7 +224,7 @@ export default function VideoStoryboard() {
     getCachedSession,
     refresh: loadSessions,
     loadMore: loadMoreSessions,
-  } = useSessionList(FALLBACK_USER_ID, SESSION_PAGE_SIZE)
+  } = useSessionList(SESSION_PAGE_SIZE)
 
   function handleSessionListScroll(e: React.UIEvent<HTMLDivElement>) {
     const el = e.currentTarget
@@ -419,6 +429,11 @@ export default function VideoStoryboard() {
     loadSessions()
   }
 
+  async function handleLogout() {
+    await logout()
+    navigate('/login', { replace: true })
+  }
+
   function handleSwitchSession(newSessionId: string) {
     if (newSessionId === sessionId) return
     localStorage.setItem(STORAGE_KEY, newSessionId)
@@ -466,7 +481,7 @@ export default function VideoStoryboard() {
     formData.append('file', file)
 
     try {
-      const res = await fetch('/oss/upload', { method: 'POST', body: formData })
+      const res = await apiFetch('/oss/upload', { method: 'POST', body: formData })
       if (!res.ok) {
         const text = await res.text().catch(() => '')
         throw new Error(text || `HTTP ${res.status}`)
@@ -566,7 +581,6 @@ export default function VideoStoryboard() {
             session_id: sessionId,
             referenced_script_id: referencedScriptId,
             source_video_asset_id: referencedVideoAsset?.id,
-            user_id: FALLBACK_USER_ID,
           },
         },
       )
@@ -623,7 +637,6 @@ export default function VideoStoryboard() {
       }
       const asset = await createAsset({
         session_id: sessionId,
-        user_id: FALLBACK_USER_ID,
         asset_type: 'video',
         asset_purpose: 'all',
         name: '已生成视频（局部修改原片）',
@@ -655,7 +668,6 @@ export default function VideoStoryboard() {
       const task = await generateVideo({
         script_id: generationScript.id,
         session_id: sessionId,
-        user_id: FALLBACK_USER_ID,
         user_prompt: prompt.trim() || undefined,
         assets: images.map((image) => ({
           type: image.mediaType.startsWith('video/') ? 'video' : 'image',
@@ -867,8 +879,11 @@ export default function VideoStoryboard() {
         </div>
 
         <div className="lj-sidebar__footer">
-          <FolderOpenOutlined />
-          <span>个人工作区 · {assets.length + scripts.length + videos.length} 项创作资产</span>
+          <div className="lj-sidebar__workspace">
+            <FolderOpenOutlined />
+            <span>个人工作区 · {assets.length + scripts.length + videos.length} 项创作资产</span>
+          </div>
+          <UserMenu account={user?.account ?? '用户'} onLogout={handleLogout} />
         </div>
       </aside>
 

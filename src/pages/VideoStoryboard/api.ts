@@ -1,10 +1,11 @@
 import type { UIMessage } from 'ai'
 import type { AssetItem, ScriptVersion, SessionPage, VideoTaskItem } from './types'
+import { apiFetch } from '../../lib/api-fetch'
 
 const BASE = '/video'
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, init)
+  const res = await apiFetch(url, init)
   if (!res.ok) {
     const text = await res.text().catch(() => '')
     throw new Error(text || `HTTP ${res.status}`)
@@ -13,14 +14,12 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 export function fetchSessions(
-  userId?: number,
   page = 1,
   pageSize = 7,
   keyword?: string,
   signal?: AbortSignal,
 ): Promise<SessionPage> {
   const params = new URLSearchParams()
-  if (userId) params.set('user_id', String(userId))
   params.set('page', String(page))
   params.set('page_size', String(pageSize))
   if (keyword) params.set('keyword', keyword)
@@ -37,7 +36,6 @@ export function fetchAssets(sessionId: string): Promise<AssetItem[]> {
 
 export interface CreateAssetBody {
   session_id: string
-  user_id?: number
   asset_type: 'image' | 'video' | 'url'
   asset_purpose?: 'all' | 'analysis' | 'reference'
   name: string
@@ -83,7 +81,6 @@ export function fetchScriptDetail(scriptId: number): Promise<ScriptVersion> {
 export interface GenerateVideoBody {
   script_id: number
   session_id: string
-  user_id: number
   user_prompt?: string
   assets?: Array<{
     type: 'image' | 'video'
@@ -120,36 +117,51 @@ export function subscribeTaskStatus(
   taskId: string,
   onUpdate: (task: Partial<VideoTaskItem>) => void,
 ): () => void {
-  const url = `${BASE}/generate/${taskId}/stream`
-  const eventSource = new EventSource(url)
+  const controller = new AbortController()
   let closed = false
   const close = () => {
     if (!closed) {
       closed = true
-      eventSource.close()
+      controller.abort()
     }
   }
-  eventSource.onmessage = (event) => {
+
+  void (async () => {
     try {
-      const data = JSON.parse(event.data)
-      onUpdate(data)
-      // 收到终态后主动关闭 SSE 连接
-      if (TERMINAL_STATUSES.includes(data.status)) {
-        close()
+      const response = await apiFetch(`${BASE}/generate/${taskId}/stream`, {
+        headers: { Accept: 'text/event-stream' },
+        signal: controller.signal,
+      })
+      if (!response.ok || !response.body) throw new Error('任务状态订阅失败')
+      const reader = response.body.pipeThrough(new TextDecoderStream()).getReader()
+      let buffer = ''
+      while (!closed) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += value
+        const events = buffer.split('\n\n')
+        buffer = events.pop() ?? ''
+        for (const event of events) {
+          const dataLine = event.split('\n').find((line) => line.startsWith('data:'))
+          if (!dataLine) continue
+          const task = JSON.parse(dataLine.slice(5).trim()) as Partial<VideoTaskItem>
+          onUpdate(task)
+          if (task.status && TERMINAL_STATUSES.includes(task.status)) {
+            close()
+            return
+          }
+        }
       }
     } catch {
-      // ignore malformed
+      if (closed) return
+      close()
+      try {
+        onUpdate(await fetchVideoTask(taskId))
+      } catch {
+        // Ignore unavailable fallback state.
+      }
     }
-  }
-  eventSource.onerror = async () => {
-    close()
-    // 网络断开降级：单次查询当前状态
-    try {
-      const task = await fetchVideoTask(taskId)
-      onUpdate(task)
-    } catch {
-      // ignore
-    }
-  }
+  })()
+
   return close
 }
