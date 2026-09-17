@@ -46,6 +46,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   createRetryRequest,
   discardFailedEphemeralMessages,
+  getVideoAgentErrorAction,
   isRetryForSession,
   type VideoStoryboardRetryRequest,
 } from './retry'
@@ -175,19 +176,6 @@ interface Metadata {
   scriptId?: number
 }
 
-interface RetryableVideoAgentError {
-  code: 'MODEL_TIMEOUT' | 'TOOL_TIMEOUT' | 'ASSET_PARSE_TIMEOUT' | 'AGENT_TOTAL_TIMEOUT'
-  retryable: true
-  message: string
-}
-
-const RETRYABLE_TIMEOUT_CODES = new Set<RetryableVideoAgentError['code']>([
-  'MODEL_TIMEOUT',
-  'TOOL_TIMEOUT',
-  'ASSET_PARSE_TIMEOUT',
-  'AGENT_TOTAL_TIMEOUT',
-])
-
 function readRecord(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
     ? value as Record<string, unknown>
@@ -196,21 +184,6 @@ function readRecord(value: unknown): Record<string, unknown> | null {
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : '未知错误'
-}
-
-function parseRetryableVideoAgentError(error: unknown): RetryableVideoAgentError | null {
-  if (!(error instanceof Error)) return null
-  try {
-    const parsed = JSON.parse(error.message) as Partial<RetryableVideoAgentError>
-    return parsed.retryable === true
-      && typeof parsed.code === 'string'
-      && RETRYABLE_TIMEOUT_CODES.has(parsed.code as RetryableVideoAgentError['code'])
-      && typeof parsed.message === 'string'
-      ? parsed as RetryableVideoAgentError
-      : null
-  } catch {
-    return null
-  }
 }
 
 /** 从 assistant 消息中解析出生成的 script_id */
@@ -650,6 +623,16 @@ export default function VideoStoryboard() {
     }
   }
 
+  function handleRefreshAfterUnknownOperation() {
+    clearError()
+    refreshAfterChatRef.current = false
+    loadSessions()
+    loadAssets()
+    loadScripts()
+    loadVideos()
+    fetchHistory(sessionId).then(setMessages).catch(() => { })
+  }
+
   // ===== 引用脚本修改 =====
   const handleQuoteScript = useCallback((script: ScriptVersion) => {
     setReferencedScriptId(script.id)
@@ -865,7 +848,7 @@ export default function VideoStoryboard() {
     return -1
   }, [visibleMessages])
 
-  const retryableError = useMemo(() => parseRetryableVideoAgentError(error), [error])
+  const videoAgentErrorAction = useMemo(() => getVideoAgentErrorAction(error), [error])
 
   return (
     <div className="lj-app">
@@ -1215,10 +1198,14 @@ export default function VideoStoryboard() {
 
               {error && (
                 <div className="lj-error">
-                  <span>{retryableError?.message ?? error.message}</span>
-                  {retryableError && isRetryForSession(latestChatRequestRef.current, sessionId) ? (
+                  <span>{videoAgentErrorAction?.message ?? error.message}</span>
+                  {videoAgentErrorAction?.type === 'retry' && isRetryForSession(latestChatRequestRef.current, sessionId) ? (
                     <Button size="small" type="link" onClick={handleRetryLatestPrompt}>
                       重试
+                    </Button>
+                  ) : videoAgentErrorAction?.type === 'refresh' ? (
+                    <Button size="small" type="link" onClick={handleRefreshAfterUnknownOperation}>
+                      刷新
                     </Button>
                   ) : (
                     <Button size="small" type="link" onClick={() => clearError()}>
