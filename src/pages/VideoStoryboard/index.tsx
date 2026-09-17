@@ -43,6 +43,12 @@ import { apiFetch } from '../../lib/api-fetch'
 import { useAuth } from '../../auth/auth-context'
 import { UserMenu } from '../../components/UserMenu/UserMenu'
 import { useNavigate } from 'react-router-dom'
+import {
+  createRetryRequest,
+  discardFailedEphemeralMessages,
+  isRetryForSession,
+  type VideoStoryboardRetryRequest,
+} from './retry'
 import './style.css'
 
 const STORAGE_KEY = 'video_storyboard_session_id'
@@ -175,23 +181,6 @@ interface RetryableVideoAgentError {
   message: string
 }
 
-interface LatestChatRequest {
-  text: string
-  files: Array<{
-    type: 'file'
-    mediaType: string
-    url: string
-    filename: string
-    purpose: 'all' | 'analysis' | 'reference'
-    durationSec?: number
-  }>
-  body: {
-    session_id: string
-    referenced_script_id?: number
-    source_video_asset_id?: number
-  }
-}
-
 const RETRYABLE_TIMEOUT_CODES = new Set<RetryableVideoAgentError['code']>([
   'MODEL_TIMEOUT',
   'TOOL_TIMEOUT',
@@ -258,7 +247,7 @@ export default function VideoStoryboard() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const refreshAfterChatRef = useRef(false)
-  const latestChatRequestRef = useRef<LatestChatRequest | null>(null)
+  const latestChatRequestRef = useRef<VideoStoryboardRetryRequest | null>(null)
 
   const {
     sessions,
@@ -472,6 +461,7 @@ export default function VideoStoryboard() {
     setAssets([])
     setScripts([])
     setVideos([])
+    latestChatRequestRef.current = null
     loadSessions()
   }
 
@@ -493,6 +483,7 @@ export default function VideoStoryboard() {
     setReferencedVideoAsset(null)
     setGenerationScriptId(undefined)
     refreshAfterChatRef.current = false
+    latestChatRequestRef.current = null
   }
 
   // ===== 文件上传 =====
@@ -618,7 +609,8 @@ export default function VideoStoryboard() {
       purpose: img.assetPurpose,
       durationSec: img.durationSec,
     }))
-    const request: LatestChatRequest = {
+    const request: VideoStoryboardRetryRequest = {
+      sessionId,
       text: prompt,
       files,
       body: {
@@ -644,15 +636,14 @@ export default function VideoStoryboard() {
 
   async function handleRetryLatestPrompt() {
     const request = latestChatRequestRef.current
-    if (!request || busy) return
+    if (!isRetryForSession(request, sessionId) || busy) return
 
     clearError()
+    setMessages((current) => discardFailedEphemeralMessages(current))
     refreshAfterChatRef.current = true
     try {
-      await sendMessage(
-        { text: request.text, files: request.files },
-        { body: request.body },
-      )
+      const retry = createRetryRequest(request)
+      await sendMessage({ text: retry.text, files: retry.files }, { body: retry.body })
     } catch (err) {
       refreshAfterChatRef.current = false
       throw err
@@ -1225,7 +1216,7 @@ export default function VideoStoryboard() {
               {error && (
                 <div className="lj-error">
                   <span>{retryableError?.message ?? error.message}</span>
-                  {retryableError && latestChatRequestRef.current ? (
+                  {retryableError && isRetryForSession(latestChatRequestRef.current, sessionId) ? (
                     <Button size="small" type="link" onClick={handleRetryLatestPrompt}>
                       重试
                     </Button>
