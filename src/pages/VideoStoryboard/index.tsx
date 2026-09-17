@@ -38,6 +38,11 @@ import {
 } from './api'
 import { useSessionList } from './useSessionList'
 import { createSessionId } from './session-id'
+import {
+  getOrCreateUserSessionId,
+  getSessionStorageKey,
+  resolveInitialSessionId,
+} from './session-storage'
 import { getAccessToken } from '../../auth/auth-token'
 import { apiFetch } from '../../lib/api-fetch'
 import { useAuth } from '../../auth/auth-context'
@@ -52,17 +57,8 @@ import {
 } from './retry'
 import './style.css'
 
-const STORAGE_KEY = 'video_storyboard_session_id'
 const SESSION_PAGE_SIZE = 20
 const CHAT_UPDATE_THROTTLE_MS = 80
-function getOrCreateSessionId(): string {
-  let sessionId = localStorage.getItem(STORAGE_KEY)
-  if (!sessionId) {
-    sessionId = createSessionId()
-    localStorage.setItem(STORAGE_KEY, sessionId)
-  }
-  return sessionId
-}
 
 // 自定义 transport：只发送最新消息，历史由后端从数据库加载
 class LatestMessageOnlyTransport extends DefaultChatTransport<UIMessage> {
@@ -202,7 +198,9 @@ function getGeneratedScriptIdFromMessage(message: UIMessage<Metadata>): number |
 export default function VideoStoryboard() {
   const { logout, user } = useAuth()
   const navigate = useNavigate()
-  const [sessionId, setSessionId] = useState(() => getOrCreateSessionId())
+  const [sessionId, setSessionId] = useState(() => (
+    getOrCreateUserSessionId(user.id, createSessionId)
+  ))
   const [images, setImages] = useState<UploadedImage[]>([])
   const [prompt, setPrompt] = useState('')
   const [imageUrlInput, setImageUrlInput] = useState('')
@@ -223,6 +221,19 @@ export default function VideoStoryboard() {
   const latestChatRequestRef = useRef<VideoStoryboardRetryRequest | null>(null)
   const [retryAvailable, setRetryAvailable] = useState(false)
 
+  const handleSessionsLoaded = useCallback((loadedSessions: SessionSummary[]) => {
+    const storageKey = getSessionStorageKey(user.id)
+    const resolvedSessionId = resolveInitialSessionId({
+      cachedSessionId: localStorage.getItem(storageKey),
+      sessions: loadedSessions,
+      createSessionId,
+    })
+    localStorage.setItem(storageKey, resolvedSessionId)
+    setSessionId((currentSessionId) => (
+      currentSessionId === resolvedSessionId ? currentSessionId : resolvedSessionId
+    ))
+  }, [user.id])
+
   const {
     sessions,
     loading: sessionsLoading,
@@ -233,7 +244,7 @@ export default function VideoStoryboard() {
     getCachedSession,
     refresh: loadSessions,
     loadMore: loadMoreSessions,
-  } = useSessionList(SESSION_PAGE_SIZE)
+  } = useSessionList(SESSION_PAGE_SIZE, handleSessionsLoaded)
 
   function handleSessionListScroll(e: React.UIEvent<HTMLDivElement>) {
     const el = e.currentTarget
@@ -421,7 +432,7 @@ export default function VideoStoryboard() {
   // ===== 会话操作 =====
   function handleNewSession() {
     const newId = createSessionId()
-    localStorage.setItem(STORAGE_KEY, newId)
+    localStorage.setItem(getSessionStorageKey(user.id), newId)
     setSessionId(newId)
     setMessages([])
     setPrompt('')
@@ -447,7 +458,7 @@ export default function VideoStoryboard() {
 
   function handleSwitchSession(newSessionId: string) {
     if (newSessionId === sessionId) return
-    localStorage.setItem(STORAGE_KEY, newSessionId)
+    localStorage.setItem(getSessionStorageKey(user.id), newSessionId)
     setSessionId(newSessionId)
     setMessages([])
     setPrompt('')

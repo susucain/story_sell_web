@@ -4,7 +4,10 @@ import type { SessionSummary } from './types'
 
 const SEARCH_DEBOUNCE_MS = 300
 
-export function useSessionList(pageSize: number) {
+export function useSessionList(
+  pageSize: number,
+  onSessionsLoaded?: (sessions: SessionSummary[]) => void,
+) {
   const [sessions, setSessions] = useState<SessionSummary[]>([])
   const [hasMore, setHasMore] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -37,6 +40,7 @@ export function useSessionList(pageSize: number) {
         const seen = new Set(previous.map((session) => session.sessionId))
         return [...previous, ...data.items.filter((session) => !seen.has(session.sessionId))]
       })
+      onSessionsLoaded?.(data.items)
       pageRef.current = data.page
       setHasMore(data.hasMore)
     } catch (requestError) {
@@ -45,7 +49,7 @@ export function useSessionList(pageSize: number) {
     } finally {
       if (requestId === requestIdRef.current) setLoading(false)
     }
-  }, [keyword, pageSize])
+  }, [keyword, onSessionsLoaded, pageSize])
 
   const refresh = useCallback(() => loadPage(1, false), [loadPage])
 
