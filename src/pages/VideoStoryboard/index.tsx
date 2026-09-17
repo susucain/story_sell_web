@@ -169,6 +169,36 @@ interface Metadata {
   scriptId?: number
 }
 
+interface RetryableVideoAgentError {
+  code: 'MODEL_TIMEOUT' | 'TOOL_TIMEOUT' | 'ASSET_PARSE_TIMEOUT' | 'AGENT_TOTAL_TIMEOUT'
+  retryable: true
+  message: string
+}
+
+interface LatestChatRequest {
+  text: string
+  files: Array<{
+    type: 'file'
+    mediaType: string
+    url: string
+    filename: string
+    purpose: 'all' | 'analysis' | 'reference'
+    durationSec?: number
+  }>
+  body: {
+    session_id: string
+    referenced_script_id?: number
+    source_video_asset_id?: number
+  }
+}
+
+const RETRYABLE_TIMEOUT_CODES = new Set<RetryableVideoAgentError['code']>([
+  'MODEL_TIMEOUT',
+  'TOOL_TIMEOUT',
+  'ASSET_PARSE_TIMEOUT',
+  'AGENT_TOTAL_TIMEOUT',
+])
+
 function readRecord(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
     ? value as Record<string, unknown>
@@ -177,6 +207,21 @@ function readRecord(value: unknown): Record<string, unknown> | null {
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : '未知错误'
+}
+
+function parseRetryableVideoAgentError(error: unknown): RetryableVideoAgentError | null {
+  if (!(error instanceof Error)) return null
+  try {
+    const parsed = JSON.parse(error.message) as Partial<RetryableVideoAgentError>
+    return parsed.retryable === true
+      && typeof parsed.code === 'string'
+      && RETRYABLE_TIMEOUT_CODES.has(parsed.code as RetryableVideoAgentError['code'])
+      && typeof parsed.message === 'string'
+      ? parsed as RetryableVideoAgentError
+      : null
+  } catch {
+    return null
+  }
 }
 
 /** 从 assistant 消息中解析出生成的 script_id */
@@ -213,6 +258,7 @@ export default function VideoStoryboard() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const refreshAfterChatRef = useRef(false)
+  const latestChatRequestRef = useRef<LatestChatRequest | null>(null)
 
   const {
     sessions,
@@ -572,17 +618,21 @@ export default function VideoStoryboard() {
       purpose: img.assetPurpose,
       durationSec: img.durationSec,
     }))
+    const request: LatestChatRequest = {
+      text: prompt,
+      files,
+      body: {
+        session_id: sessionId,
+        referenced_script_id: referencedScriptId,
+        source_video_asset_id: referencedVideoAsset?.id,
+      },
+    }
+    latestChatRequestRef.current = request
     refreshAfterChatRef.current = true
     try {
       await sendMessage(
-        { text: prompt, files },
-        {
-          body: {
-            session_id: sessionId,
-            referenced_script_id: referencedScriptId,
-            source_video_asset_id: referencedVideoAsset?.id,
-          },
-        },
+        { text: request.text, files: request.files },
+        { body: request.body },
       )
     } catch (err) {
       refreshAfterChatRef.current = false
@@ -590,6 +640,23 @@ export default function VideoStoryboard() {
     }
     setPrompt('')
     setImages([])
+  }
+
+  async function handleRetryLatestPrompt() {
+    const request = latestChatRequestRef.current
+    if (!request || busy) return
+
+    clearError()
+    refreshAfterChatRef.current = true
+    try {
+      await sendMessage(
+        { text: request.text, files: request.files },
+        { body: request.body },
+      )
+    } catch (err) {
+      refreshAfterChatRef.current = false
+      throw err
+    }
   }
 
   // ===== 引用脚本修改 =====
@@ -807,11 +874,7 @@ export default function VideoStoryboard() {
     return -1
   }, [visibleMessages])
 
-  useEffect(() => {
-    if(error) {
-      console.error(error);
-    }
-  }, [error])
+  const retryableError = useMemo(() => parseRetryableVideoAgentError(error), [error])
 
   return (
     <div className="lj-app">
@@ -1161,10 +1224,16 @@ export default function VideoStoryboard() {
 
               {error && (
                 <div className="lj-error">
-                  <span>{error.message}</span>
-                  <Button size="small" type="link" onClick={() => clearError()}>
-                    关闭
-                  </Button>
+                  <span>{retryableError?.message ?? error.message}</span>
+                  {retryableError && latestChatRequestRef.current ? (
+                    <Button size="small" type="link" onClick={handleRetryLatestPrompt}>
+                      重试
+                    </Button>
+                  ) : (
+                    <Button size="small" type="link" onClick={() => clearError()}>
+                      关闭
+                    </Button>
+                  )}
                 </div>
               )}
             </div>
