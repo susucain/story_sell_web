@@ -221,6 +221,7 @@ export default function VideoStoryboard() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const refreshAfterChatRef = useRef(false)
   const latestChatRequestRef = useRef<VideoStoryboardRetryRequest | null>(null)
+  const [retryAvailable, setRetryAvailable] = useState(false)
 
   const {
     sessions,
@@ -435,6 +436,7 @@ export default function VideoStoryboard() {
     setScripts([])
     setVideos([])
     latestChatRequestRef.current = null
+    setRetryAvailable(false)
     loadSessions()
   }
 
@@ -457,6 +459,7 @@ export default function VideoStoryboard() {
     setGenerationScriptId(undefined)
     refreshAfterChatRef.current = false
     latestChatRequestRef.current = null
+    setRetryAvailable(false)
   }
 
   // ===== 文件上传 =====
@@ -593,6 +596,7 @@ export default function VideoStoryboard() {
       },
     }
     latestChatRequestRef.current = request
+    setRetryAvailable(true)
     refreshAfterChatRef.current = true
     try {
       await sendMessage(
@@ -1199,7 +1203,7 @@ export default function VideoStoryboard() {
               {error && (
                 <div className="lj-error">
                   <span>{videoAgentErrorAction?.message ?? error.message}</span>
-                  {videoAgentErrorAction?.type === 'retry' && isRetryForSession(latestChatRequestRef.current, sessionId) ? (
+                  {videoAgentErrorAction?.type === 'retry' && retryAvailable ? (
                     <Button size="small" type="link" onClick={handleRetryLatestPrompt}>
                       重试
                     </Button>
