@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   getSessionStorageKey,
+  isSessionResourceLoadReady,
   resolveInitialSessionId,
 } from './session-storage'
 
@@ -32,5 +33,10 @@ describe('video storyboard session storage', () => {
       sessions: [],
       createSessionId: () => 'new-session',
     })).toBe('new-session')
+  })
+
+  it('does not load session resources until server validation completes', () => {
+    expect(isSessionResourceLoadReady(false)).toBe(false)
+    expect(isSessionResourceLoadReady(true)).toBe(true)
   })
 })

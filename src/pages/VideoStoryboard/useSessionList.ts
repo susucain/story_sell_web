@@ -7,6 +7,7 @@ const SEARCH_DEBOUNCE_MS = 300
 export function useSessionList(
   pageSize: number,
   onSessionsLoaded?: (sessions: SessionSummary[]) => void,
+  onSessionsLoadFailed?: () => void,
 ) {
   const [sessions, setSessions] = useState<SessionSummary[]>([])
   const [hasMore, setHasMore] = useState(false)
@@ -40,16 +41,19 @@ export function useSessionList(
         const seen = new Set(previous.map((session) => session.sessionId))
         return [...previous, ...data.items.filter((session) => !seen.has(session.sessionId))]
       })
-      onSessionsLoaded?.(data.items)
+      if (!append && !keyword) onSessionsLoaded?.(data.items)
       pageRef.current = data.page
       setHasMore(data.hasMore)
     } catch (requestError) {
       if (requestError instanceof DOMException && requestError.name === 'AbortError') return
-      if (requestId === requestIdRef.current) setError(true)
+      if (requestId === requestIdRef.current) {
+        setError(true)
+        onSessionsLoadFailed?.()
+      }
     } finally {
       if (requestId === requestIdRef.current) setLoading(false)
     }
-  }, [keyword, onSessionsLoaded, pageSize])
+  }, [keyword, onSessionsLoadFailed, onSessionsLoaded, pageSize])
 
   const refresh = useCallback(() => loadPage(1, false), [loadPage])
 

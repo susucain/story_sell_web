@@ -41,6 +41,7 @@ import { createSessionId } from './session-id'
 import {
   getOrCreateUserSessionId,
   getSessionStorageKey,
+  isSessionResourceLoadReady,
   resolveInitialSessionId,
 } from './session-storage'
 import { getAccessToken } from '../../auth/auth-token'
@@ -220,6 +221,7 @@ export default function VideoStoryboard() {
   const refreshAfterChatRef = useRef(false)
   const latestChatRequestRef = useRef<VideoStoryboardRetryRequest | null>(null)
   const [retryAvailable, setRetryAvailable] = useState(false)
+  const [sessionValidated, setSessionValidated] = useState(false)
 
   const handleSessionsLoaded = useCallback((loadedSessions: SessionSummary[]) => {
     const storageKey = getSessionStorageKey(user.id)
@@ -232,7 +234,12 @@ export default function VideoStoryboard() {
     setSessionId((currentSessionId) => (
       currentSessionId === resolvedSessionId ? currentSessionId : resolvedSessionId
     ))
+    setSessionValidated(true)
   }, [user.id])
+
+  const handleSessionsLoadFailed = useCallback(() => {
+    setSessionValidated(true)
+  }, [])
 
   const {
     sessions,
@@ -244,7 +251,11 @@ export default function VideoStoryboard() {
     getCachedSession,
     refresh: loadSessions,
     loadMore: loadMoreSessions,
-  } = useSessionList(SESSION_PAGE_SIZE, handleSessionsLoaded)
+  } = useSessionList(
+    SESSION_PAGE_SIZE,
+    handleSessionsLoaded,
+    handleSessionsLoadFailed,
+  )
 
   function handleSessionListScroll(e: React.UIEvent<HTMLDivElement>) {
     const el = e.currentTarget
@@ -259,29 +270,32 @@ export default function VideoStoryboard() {
   )
 
   // ===== 素材 / 脚本 / 视频任务 =====
-  const loadAssets = useCallback(() => {
-    fetchAssets(sessionId)
+  const loadAssets = useCallback((signal?: AbortSignal) => {
+    fetchAssets(sessionId, signal)
       .then((data) => setAssets(data))
       .catch(() => { })
   }, [sessionId])
 
-  const loadScripts = useCallback(() => {
-    fetchScripts(sessionId)
+  const loadScripts = useCallback((signal?: AbortSignal) => {
+    fetchScripts(sessionId, signal)
       .then((data) => setScripts(data))
       .catch(() => { })
   }, [sessionId])
 
-  const loadVideos = useCallback(() => {
-    fetchVideoTasksBySession(sessionId)
+  const loadVideos = useCallback((signal?: AbortSignal) => {
+    fetchVideoTasksBySession(sessionId, signal)
       .then((data) => setVideos(data))
       .catch(() => { })
   }, [sessionId])
 
   useEffect(() => {
-    loadAssets()
-    loadScripts()
-    loadVideos()
-  }, [sessionId, loadAssets, loadScripts, loadVideos])
+    if (!isSessionResourceLoadReady(sessionValidated)) return
+    const controller = new AbortController()
+    loadAssets(controller.signal)
+    loadScripts(controller.signal)
+    loadVideos(controller.signal)
+    return () => controller.abort()
+  }, [sessionId, sessionValidated, loadAssets, loadScripts, loadVideos])
 
   const activeVideoTaskIds = useMemo(
     () =>
@@ -310,7 +324,9 @@ export default function VideoStoryboard() {
 
   // 加载当前会话的历史消息
   useEffect(() => {
-    fetchHistory(sessionId)
+    if (!isSessionResourceLoadReady(sessionValidated)) return
+    const controller = new AbortController()
+    fetchHistory(sessionId, controller.signal)
       .then((msgs) => {
         if (Array.isArray(msgs) && msgs.length > 0) {
           setMessages(msgs)
@@ -319,10 +335,12 @@ export default function VideoStoryboard() {
         }
       })
       .catch(() => { })
-  }, [sessionId, setMessages])
+    return () => controller.abort()
+  }, [sessionId, sessionValidated, setMessages])
 
   // SSE 订阅活跃任务。终态消息由后端回调写入历史，因此终态后重新加载历史。
   useEffect(() => {
+    if (!isSessionResourceLoadReady(sessionValidated)) return
     const taskIds = activeVideoTaskIds ? activeVideoTaskIds.split(',') : []
     const cleanups = taskIds.map((taskId) =>
       subscribeTaskStatus(taskId, (update) => {
@@ -355,12 +373,16 @@ export default function VideoStoryboard() {
     loadSessions,
     loadVideos,
     sessionId,
+    sessionValidated,
     setMessages,
   ])
 
   const busy = status === 'submitted' || status === 'streaming'
   const hasUploading = images.some((img) => img.uploading)
-  const canSend = status === 'ready' && !hasUploading && (prompt.trim().length > 0 || images.length > 0)
+  const canSend = sessionValidated
+    && status === 'ready'
+    && !hasUploading
+    && (prompt.trim().length > 0 || images.length > 0)
 
   useEffect(() => {
     const animationFrame = requestAnimationFrame(() => {
@@ -434,6 +456,7 @@ export default function VideoStoryboard() {
     const newId = createSessionId()
     localStorage.setItem(getSessionStorageKey(user.id), newId)
     setSessionId(newId)
+    setSessionValidated(true)
     setMessages([])
     setPrompt('')
     setImages([])
@@ -460,6 +483,7 @@ export default function VideoStoryboard() {
     if (newSessionId === sessionId) return
     localStorage.setItem(getSessionStorageKey(user.id), newSessionId)
     setSessionId(newSessionId)
+    setSessionValidated(true)
     setMessages([])
     setPrompt('')
     setImages([])

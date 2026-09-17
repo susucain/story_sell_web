@@ -33,3 +33,7 @@ export function resolveInitialSessionId(options: {
   }
   return sessions[0]?.sessionId ?? createSessionId()
 }
+
+export function isSessionResourceLoadReady(sessionValidated: boolean): boolean {
+  return sessionValidated
+}

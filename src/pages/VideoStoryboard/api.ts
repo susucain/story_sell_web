@@ -26,12 +26,12 @@ export function fetchSessions(
   return fetchJson<SessionPage>(`${BASE}/sessions?${params.toString()}`, { signal })
 }
 
-export function fetchHistory(sessionId: string): Promise<UIMessage[]> {
-  return fetchJson<UIMessage[]>(`${BASE}/history/${sessionId}`)
+export function fetchHistory(sessionId: string, signal?: AbortSignal): Promise<UIMessage[]> {
+  return fetchJson<UIMessage[]>(`${BASE}/history/${sessionId}`, { signal })
 }
 
-export function fetchAssets(sessionId: string): Promise<AssetItem[]> {
-  return fetchJson<AssetItem[]>(`${BASE}/assets/${sessionId}`)
+export function fetchAssets(sessionId: string, signal?: AbortSignal): Promise<AssetItem[]> {
+  return fetchJson<AssetItem[]>(`${BASE}/assets/${sessionId}`, { signal })
 }
 
 export interface CreateAssetBody {
@@ -70,8 +70,8 @@ export function updateAssetPurpose(
   })
 }
 
-export function fetchScripts(sessionId: string): Promise<ScriptVersion[]> {
-  return fetchJson<ScriptVersion[]>(`${BASE}/scripts/${sessionId}`)
+export function fetchScripts(sessionId: string, signal?: AbortSignal): Promise<ScriptVersion[]> {
+  return fetchJson<ScriptVersion[]>(`${BASE}/scripts/${sessionId}`, { signal })
 }
 
 export function fetchScriptDetail(scriptId: number): Promise<ScriptVersion> {
@@ -101,8 +101,11 @@ export function fetchVideoTask(taskId: string): Promise<VideoTaskItem> {
   return fetchJson<VideoTaskItem>(`${BASE}/generate/${taskId}`)
 }
 
-export function fetchVideoTasksBySession(sessionId: string): Promise<VideoTaskItem[]> {
-  return fetchJson<VideoTaskItem[]>(`${BASE}/generate/list/${sessionId}`)
+export function fetchVideoTasksBySession(
+  sessionId: string,
+  signal?: AbortSignal,
+): Promise<VideoTaskItem[]> {
+  return fetchJson<VideoTaskItem[]>(`${BASE}/generate/list/${sessionId}`, { signal })
 }
 
 export function cancelVideoTask(taskId: string): Promise<{ success: boolean }> {
