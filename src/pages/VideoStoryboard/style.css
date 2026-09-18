@@ -272,7 +272,7 @@ html {
   flex-shrink: 0;
 }
 .lj-sidebar__workspace { display: flex; align-items: center; gap: 6px; }
-.lj-user-menu { width: 100%; min-height: 34px; display: flex; align-items: center; gap: 8px; padding: 5px 7px; border: 1px solid var(--lj-border-soft); border-radius: 6px; background: rgba(255,255,255,.55); color: var(--lj-text-secondary); cursor: pointer; text-align: left; }
+.lj-user-menu { min-height: 34px; display: flex; align-items: center; gap: 8px; padding: 5px 7px; border-radius: 6px; background: rgba(255,255,255,.55); color: var(--lj-text-secondary); cursor: pointer; text-align: left; }
 .lj-user-menu:hover { border-color: #b9b4f4; color: var(--lj-text-primary); }
 .lj-user-menu__avatar { width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; background: #e5e3fb; color: #5646db; }
 .lj-user-menu__account { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }

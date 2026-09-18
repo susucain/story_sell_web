@@ -56,6 +56,7 @@ import {
   isRetryForSession,
   type VideoStoryboardRetryRequest,
 } from './retry'
+import { removeStoppedAssistantTurn } from './stop-process'
 import './style.css'
 
 const SESSION_PAGE_SIZE = 20
@@ -321,6 +322,11 @@ export default function VideoStoryboard() {
     transport,
     throttle: CHAT_UPDATE_THROTTLE_MS,
   })
+
+  function handleStop() {
+    stop()
+    setMessages((currentMessages) => removeStoppedAssistantTurn(currentMessages))
+  }
 
   // 加载当前会话的历史消息
   useEffect(() => {
@@ -956,10 +962,10 @@ export default function VideoStoryboard() {
 
         <div className="lj-sidebar__footer">
           <div className="lj-sidebar__workspace">
-            <FolderOpenOutlined />
-            <span>个人工作区 · {assets.length + scripts.length + videos.length} 项创作资产</span>
+            <UserMenu account={user?.account ?? '用户'} onLogout={handleLogout} />
+            {/* <FolderOpenOutlined />
+            <span>个人工作区 · {assets.length + scripts.length + videos.length} 项创作资产</span> */}
           </div>
-          <UserMenu account={user?.account ?? '用户'} onLogout={handleLogout} />
         </div>
       </aside>
 
@@ -1216,7 +1222,7 @@ export default function VideoStoryboard() {
                           <Button
                             aria-label="停止本轮处理"
                             className="lj-stop-btn"
-                            onClick={() => stop()}
+                            onClick={handleStop}
                           >
                             <span className="lj-stop-btn__mark" aria-hidden="true" />
                           </Button>
