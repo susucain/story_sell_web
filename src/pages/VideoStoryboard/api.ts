@@ -1,6 +1,7 @@
 import type { UIMessage } from 'ai'
 import type { AssetItem, ScriptVersion, SessionPage, VideoTaskItem } from './types'
 import { apiFetch } from '../../lib/api-fetch'
+import { reportError } from '../../lib/report-error'
 
 const BASE = '/video'
 
@@ -155,13 +156,14 @@ export function subscribeTaskStatus(
           }
         }
       }
-    } catch {
+    } catch (error) {
       if (closed) return
+      reportError(`video.task-stream.${taskId}`, error)
       close()
       try {
         onUpdate(await fetchVideoTask(taskId))
-      } catch {
-        // Ignore unavailable fallback state.
+      } catch (fallbackError) {
+        reportError(`video.task-fallback.${taskId}`, fallbackError)
       }
     }
   })()

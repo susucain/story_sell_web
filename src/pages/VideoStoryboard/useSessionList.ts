@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchSessions } from './api'
 import type { SessionSummary } from './types'
+import { isAbortError, reportError } from '../../lib/report-error'
 
 const SEARCH_DEBOUNCE_MS = 300
 
@@ -45,9 +46,10 @@ export function useSessionList(
       pageRef.current = data.page
       setHasMore(data.hasMore)
     } catch (requestError) {
-      if (requestError instanceof DOMException && requestError.name === 'AbortError') return
+      if (isAbortError(requestError)) return
       if (requestId === requestIdRef.current) {
         setError(true)
+        reportError('video.sessions.load', requestError)
         onSessionsLoadFailed?.()
       }
     } finally {

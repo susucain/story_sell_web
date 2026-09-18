@@ -2,6 +2,7 @@ import { Button, Form, Input, message } from 'antd'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import { useAuth } from '../../auth/auth-context'
+import { reportError } from '../../lib/report-error'
 import './style.css'
 
 type AuthPageProps = { mode: 'login' | 'register' }
@@ -23,6 +24,7 @@ export function AuthPage({ mode }: AuthPageProps) {
       else await auth.login((values as LoginValues).account, (values as LoginValues).password)
       navigate(from, { replace: true })
     } catch (error) {
+      reportError('auth.submit', error)
       message.error(error instanceof Error ? error.message : '请求失败，请稍后重试')
     } finally {
       setSubmitting(false)
@@ -31,7 +33,7 @@ export function AuthPage({ mode }: AuthPageProps) {
 
   return <main className="auth-page">
     <section className="auth-preview">
-      <div className="auth-brand"><span className="auth-brand-mark" />灵剪 AI</div>
+      <div className="auth-brand"><span className="auth-brand-mark" />映语 AI</div>
       <div className="auth-preview-copy"><h1>{isRegister ? '从第一条灵感，开始你的创作工作台' : '从灵感到成片，持续保持创作节奏'}</h1><p>统一管理素材、脚本与生成任务，让每次创作都自然衔接。</p></div>
       <div className="auth-workspace-preview"><strong>静音榨汁杯短视频策划</strong><div className="auth-preview-row"><span /><i /><i /></div><div className="auth-preview-row"><span /><i /><i /></div></div>
     </section>

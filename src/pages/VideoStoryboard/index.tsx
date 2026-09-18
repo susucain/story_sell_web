@@ -44,8 +44,8 @@ import {
   isSessionResourceLoadReady,
   resolveInitialSessionId,
 } from './session-storage'
-import { getAccessToken } from '../../auth/auth-token'
 import { apiFetch } from '../../lib/api-fetch'
+import { isAbortError, reportError } from '../../lib/report-error'
 import { useAuth } from '../../auth/auth-context'
 import { UserMenu } from '../../components/UserMenu/UserMenu'
 import { useNavigate } from 'react-router-dom'
@@ -57,6 +57,7 @@ import {
   type VideoStoryboardRetryRequest,
 } from './retry'
 import { removeStoppedAssistantTurn } from './stop-process'
+import { shouldApplyHistoryResult } from './history-hydration'
 import './style.css'
 
 const SESSION_PAGE_SIZE = 20
@@ -64,6 +65,14 @@ const CHAT_UPDATE_THROTTLE_MS = 80
 
 // 自定义 transport：只发送最新消息，历史由后端从数据库加载
 class LatestMessageOnlyTransport extends DefaultChatTransport<UIMessage> {
+  constructor() {
+    super({
+      api: '/video/chat',
+      credentials: 'include',
+      fetch: apiFetch,
+    })
+  }
+
   async sendMessages(
     options: Parameters<ChatTransport<UIMessage>['sendMessages']>[0],
   ): Promise<ReadableStream<import('ai').UIMessageChunk>> {
@@ -71,10 +80,6 @@ class LatestMessageOnlyTransport extends DefaultChatTransport<UIMessage> {
     const latestMessage = messages[messages.length - 1]
     return super.sendMessages({
       ...rest,
-      headers: {
-        ...rest.headers,
-        ...(getAccessToken() ? { Authorization: `Bearer ${getAccessToken()}` } : {}),
-      },
       messages: latestMessage ? [latestMessage] : [],
     })
   }
@@ -220,6 +225,8 @@ export default function VideoStoryboard() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const refreshAfterChatRef = useRef(false)
+  const historyAbortRef = useRef<AbortController | null>(null)
+  const chatStartedRef = useRef(false)
   const latestChatRequestRef = useRef<VideoStoryboardRetryRequest | null>(null)
   const [retryAvailable, setRetryAvailable] = useState(false)
   const [sessionValidated, setSessionValidated] = useState(false)
@@ -274,19 +281,25 @@ export default function VideoStoryboard() {
   const loadAssets = useCallback((signal?: AbortSignal) => {
     fetchAssets(sessionId, signal)
       .then((data) => setAssets(data))
-      .catch(() => { })
+      .catch((error) => {
+        if (!isAbortError(error)) reportError('video.assets.load', error)
+      })
   }, [sessionId])
 
   const loadScripts = useCallback((signal?: AbortSignal) => {
     fetchScripts(sessionId, signal)
       .then((data) => setScripts(data))
-      .catch(() => { })
+      .catch((error) => {
+        if (!isAbortError(error)) reportError('video.scripts.load', error)
+      })
   }, [sessionId])
 
   const loadVideos = useCallback((signal?: AbortSignal) => {
     fetchVideoTasksBySession(sessionId, signal)
       .then((data) => setVideos(data))
-      .catch(() => { })
+      .catch((error) => {
+        if (!isAbortError(error)) reportError('video.tasks.load', error)
+      })
   }, [sessionId])
 
   useEffect(() => {
@@ -314,7 +327,7 @@ export default function VideoStoryboard() {
 
   // ===== Chat =====
   const transport = useMemo(
-    () => new LatestMessageOnlyTransport({ api: '/video/chat' }),
+    () => new LatestMessageOnlyTransport(),
     [],
   )
 
@@ -322,6 +335,36 @@ export default function VideoStoryboard() {
     transport,
     throttle: CHAT_UPDATE_THROTTLE_MS,
   })
+  const statusRef = useRef(status)
+  useEffect(() => {
+    statusRef.current = status
+  }, [status])
+
+  const refreshHistoryWhenIdle = useCallback((targetSessionId: string) => {
+    if (statusRef.current !== 'ready') return
+    historyAbortRef.current?.abort()
+    const controller = new AbortController()
+    historyAbortRef.current = controller
+    fetchHistory(targetSessionId, controller.signal)
+      .then((msgs) => {
+        if (
+          controller.signal.aborted
+          || statusRef.current !== 'ready'
+          || chatStartedRef.current
+        ) return
+        setMessages(msgs)
+      })
+      .catch((error) => {
+        if (!isAbortError(error)) reportError('video.history.refresh', error)
+      })
+      .finally(() => {
+        if (historyAbortRef.current === controller) historyAbortRef.current = null
+      })
+  }, [setMessages])
+
+  useEffect(() => {
+    if (status === 'ready') chatStartedRef.current = false
+  }, [status])
 
   function handleStop() {
     stop()
@@ -332,16 +375,32 @@ export default function VideoStoryboard() {
   useEffect(() => {
     if (!isSessionResourceLoadReady(sessionValidated)) return
     const controller = new AbortController()
+    historyAbortRef.current?.abort()
+    historyAbortRef.current = controller
+    const requestSessionId = sessionId
+    let disposed = false
     fetchHistory(sessionId, controller.signal)
       .then((msgs) => {
+        if (!shouldApplyHistoryResult({
+          requestSessionId,
+          currentSessionId: sessionId,
+          chatStarted: chatStartedRef.current,
+          disposed,
+        })) return
         if (Array.isArray(msgs) && msgs.length > 0) {
           setMessages(msgs)
         } else {
           setMessages([])
         }
       })
-      .catch(() => { })
-    return () => controller.abort()
+      .catch((error) => {
+        if (!isAbortError(error)) reportError('video.history.load', error)
+      })
+    return () => {
+      disposed = true
+      controller.abort()
+      if (historyAbortRef.current === controller) historyAbortRef.current = null
+    }
   }, [sessionId, sessionValidated, setMessages])
 
   // SSE 订阅活跃任务。终态消息由后端回调写入历史，因此终态后重新加载历史。
@@ -367,7 +426,7 @@ export default function VideoStoryboard() {
           loadVideos()
           loadSessions()
           loadScripts()
-          fetchHistory(sessionId).then(setMessages).catch(() => { })
+          refreshHistoryWhenIdle(sessionId)
         }
       }),
     )
@@ -378,6 +437,7 @@ export default function VideoStoryboard() {
     loadScripts,
     loadSessions,
     loadVideos,
+    refreshHistoryWhenIdle,
     sessionId,
     sessionValidated,
     setMessages,
@@ -463,6 +523,7 @@ export default function VideoStoryboard() {
     localStorage.setItem(getSessionStorageKey(user.id), newId)
     setSessionId(newId)
     setSessionValidated(true)
+    chatStartedRef.current = false
     setMessages([])
     setPrompt('')
     setImages([])
@@ -490,6 +551,8 @@ export default function VideoStoryboard() {
     localStorage.setItem(getSessionStorageKey(user.id), newSessionId)
     setSessionId(newSessionId)
     setSessionValidated(true)
+    historyAbortRef.current?.abort()
+    chatStartedRef.current = false
     setMessages([])
     setPrompt('')
     setImages([])
@@ -639,6 +702,8 @@ export default function VideoStoryboard() {
     latestChatRequestRef.current = request
     setRetryAvailable(true)
     refreshAfterChatRef.current = true
+    historyAbortRef.current?.abort()
+    chatStartedRef.current = true
     try {
       await sendMessage(
         { text: request.text, files: request.files },
@@ -657,6 +722,8 @@ export default function VideoStoryboard() {
     if (!isRetryForSession(request, sessionId) || busy) return
 
     clearError()
+    historyAbortRef.current?.abort()
+    chatStartedRef.current = true
     setMessages((current) => discardFailedEphemeralMessages(current))
     refreshAfterChatRef.current = true
     try {
@@ -675,7 +742,7 @@ export default function VideoStoryboard() {
     loadAssets()
     loadScripts()
     loadVideos()
-    fetchHistory(sessionId).then(setMessages).catch(() => { })
+    if (!busy) refreshHistoryWhenIdle(sessionId)
   }
 
   // ===== 引用脚本修改 =====
@@ -769,7 +836,9 @@ export default function VideoStoryboard() {
       loadAssets()
       loadScripts()
       loadSessions()
-      fetchHistory(sessionId).then(setMessages).catch(() => { })
+      fetchHistory(sessionId)
+        .then(setMessages)
+        .catch((error) => reportError('video.history.refresh', error))
     } catch (err: unknown) {
       antdMessage.error(`发起生成失败: ${getErrorMessage(err)}`)
     } finally {
@@ -894,6 +963,10 @@ export default function VideoStoryboard() {
   }, [visibleMessages])
 
   const videoAgentErrorAction = useMemo(() => getVideoAgentErrorAction(error), [error])
+
+  useEffect(() => {
+    if (error) reportError('video.chat.stream', error)
+  }, [error])
 
   return (
     <div className="lj-app">
