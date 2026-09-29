@@ -31,7 +31,8 @@ export interface ProcessOutput {
 }
 
 export interface ProcessPhase {
-  id: 'parse-materials' | 'load-guidelines' | 'generate-script'
+  /** 阶段标识。life-service 为固定三阶段，多 Agent 场景为 `dispatch-<role>` */
+  id: string
   title: string
   description: string
   status: ProcessStatus

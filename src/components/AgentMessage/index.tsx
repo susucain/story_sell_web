@@ -371,7 +371,7 @@ function ProcessPhaseView({
           </div>
         )}
 
-        {phase.id === 'generate-script' && (
+        {((phase.actions?.length ?? 0) + (phase.outputs?.length ?? 0)) > 0 && (
           <GeneratePhaseBody phase={phase} isRunning={isRunning} />
         )}
       </div>

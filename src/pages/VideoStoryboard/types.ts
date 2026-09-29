@@ -1,11 +1,17 @@
-/** 会话级商品画像（video_sessions.product_profile） */
-export interface ProductProfile {
-  product_name?: string
-  selling_points?: string[]
-  target_audience?: string
+/** 会话级创作简报（video_sessions.product_profile，垂类无关） */
+export interface CreativeBrief {
+  vertical?: string
+  subject?: string
+  key_points?: string[]
+  audience?: string
   duration?: number
   platform?: string
   tone?: string
+  constraints?: string[]
+  /** 历史会话字段（改名前为商品画像），保留读取兼容 */
+  product_name?: string
+  selling_points?: string[]
+  target_audience?: string
 }
 
 /** 后端 /video/sessions 返回的会话摘要 */
@@ -14,7 +20,7 @@ export interface SessionSummary {
   sessionId: string
   topic: string | null
   status: string
-  productProfile?: ProductProfile | null
+  creativeBrief?: CreativeBrief | null
   createdAt: string
   updatedAt: string
 }

@@ -914,14 +914,16 @@ export default function VideoStoryboard() {
   // ===== 记忆芯片文本 =====
   const memoryText = useMemo(() => {
     const parts: string[] = []
-    const profile = currentSession?.productProfile
-    if (profile?.product_name) parts.push(profile.product_name)
-    if (profile?.target_audience) parts.push(profile.target_audience)
-    if (profile?.tone) parts.push(profile.tone)
+    const brief = currentSession?.creativeBrief
+    const subject = brief?.subject ?? brief?.product_name
+    const audience = brief?.audience ?? brief?.target_audience
+    if (subject) parts.push(subject)
+    if (audience) parts.push(audience)
+    if (brief?.tone) parts.push(brief.tone)
     if (latestStoryboard) {
       parts.push(`${latestStoryboard.totalDuration} 秒`)
-    } else if (profile?.duration) {
-      parts.push(`${profile.duration} 秒`)
+    } else if (brief?.duration) {
+      parts.push(`${brief.duration} 秒`)
     }
     if (assets.length > 0) parts.push(`已关联 ${assets.length} 项素材`)
     return parts.join(' · ')
@@ -979,7 +981,7 @@ export default function VideoStoryboard() {
             onNewSession={handleNewSession}
             onSelectSession={handleSwitchSession}
             onLogout={handleLogout}
-            getSessionTitle={(session) => session.productProfile?.product_name || session.topic || '未命名会话'}
+            getSessionTitle={(session) => session.creativeBrief?.subject || session.creativeBrief?.product_name || session.topic || '未命名会话'}
             getSessionMeta={(session) => `${sessionStatusText(session.status)} · ${formatRelativeTime(session.updatedAt)}`}
           />
         </aside>
@@ -1401,7 +1403,7 @@ export default function VideoStoryboard() {
               onNewSession={handleNewSession}
               onSelectSession={handleSwitchSession}
               onLogout={handleLogout}
-              getSessionTitle={(session) => session.productProfile?.product_name || session.topic || '未命名会话'}
+              getSessionTitle={(session) => session.creativeBrief?.subject || session.creativeBrief?.product_name || session.topic || '未命名会话'}
               getSessionMeta={(session) => `${sessionStatusText(session.status)} · ${formatRelativeTime(session.updatedAt)}`}
             />
           </Drawer>
