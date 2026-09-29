@@ -3,7 +3,6 @@ import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport, type UIMessage, type ChatTransport, getToolName, isToolUIPart } from 'ai'
 import {
   SendOutlined,
-  PlusOutlined,
   CloseOutlined,
   PictureOutlined,
   VideoCameraOutlined,
@@ -11,6 +10,7 @@ import {
   PaperClipOutlined,
   FileTextOutlined,
   CloseCircleFilled,
+  MenuOutlined,
 } from '@ant-design/icons'
 import {
   Button,
@@ -20,9 +20,11 @@ import {
   Modal,
   Tabs,
   Tooltip,
+  Drawer,
 } from 'antd'
 import { AgentMessage } from '../../components/AgentMessage'
 import { RightPanel } from './RightPanel'
+import { SessionPanel } from './SessionPanel'
 import type { SessionSummary, AssetItem, ScriptVersion, VideoTaskItem, ParsedStoryboard } from './types'
 import { toParsedStoryboard } from './types'
 import {
@@ -47,7 +49,6 @@ import {
 import { apiFetch } from '../../lib/api-fetch'
 import { isAbortError, reportError } from '../../lib/report-error'
 import { useAuth } from '../../auth/auth-context'
-import { UserMenu } from '../../components/UserMenu/UserMenu'
 import { useNavigate } from 'react-router-dom'
 import {
   createRetryRequest,
@@ -58,6 +59,7 @@ import {
 } from './retry'
 import { removeStoppedAssistantTurn } from './stop-process'
 import { shouldApplyHistoryResult } from './history-hydration'
+import { useWorkspaceMode } from './responsive-layout'
 import './style.css'
 
 const SESSION_PAGE_SIZE = 20
@@ -205,6 +207,8 @@ function getGeneratedScriptIdFromMessage(message: UIMessage<Metadata>): number |
 export default function VideoStoryboard() {
   const { logout, user } = useAuth()
   const navigate = useNavigate()
+  const workspaceMode = useWorkspaceMode()
+  const isDesktopWorkspace = workspaceMode === 'desktop'
   const [sessionId, setSessionId] = useState(() => (
     getOrCreateUserSessionId(user.id, createSessionId)
   ))
@@ -222,6 +226,8 @@ export default function VideoStoryboard() {
   const [referencedVideoAsset, setReferencedVideoAsset] = useState<AssetItem | null>(null)
   const [generationScriptId, setGenerationScriptId] = useState<number | undefined>()
   const [panelTab, setPanelTab] = useState<'assets' | 'scripts' | 'videos'>('assets')
+  const [mobileSessionOpen, setMobileSessionOpen] = useState(false)
+  const [mobileResourceOpen, setMobileResourceOpen] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const refreshAfterChatRef = useRef(false)
@@ -536,6 +542,7 @@ export default function VideoStoryboard() {
     setAssets([])
     setScripts([])
     setVideos([])
+    setMobileSessionOpen(false)
     latestChatRequestRef.current = null
     setRetryAvailable(false)
     loadSessions()
@@ -561,6 +568,7 @@ export default function VideoStoryboard() {
     setReferencedScriptId(undefined)
     setReferencedVideoAsset(null)
     setGenerationScriptId(undefined)
+    setMobileSessionOpen(false)
     refreshAfterChatRef.current = false
     latestChatRequestRef.current = null
     setRetryAvailable(false)
@@ -903,25 +911,6 @@ export default function VideoStoryboard() {
     [sessions],
   )
 
-  function renderSessionItem(session: SessionSummary) {
-    const isGenerating = session.status === 'video_generating'
-    return (
-      <div
-        key={session.sessionId}
-        className={`lj-session-item ${session.sessionId === sessionId ? 'active' : ''}`}
-        onClick={() => handleSwitchSession(session.sessionId)}
-      >
-        <div className="lj-session-item__title">{session.productProfile?.product_name || session.topic || '未命名会话'}</div>
-        <div className="lj-session-item__meta">
-          {isGenerating && <span className="lj-session-item__pulse" />}
-          <span>
-            {sessionStatusText(session.status)} · {formatRelativeTime(session.updatedAt)}
-          </span>
-        </div>
-      </div>
-    )
-  }
-
   // ===== 记忆芯片文本 =====
   const memoryText = useMemo(() => {
     const parts: string[] = []
@@ -971,80 +960,55 @@ export default function VideoStoryboard() {
   return (
     <div className="lj-app">
       {/* ===== 左侧栏 ===== */}
-      <aside className="lj-sidebar">
-        <div className="lj-sidebar__brand">
-          <div className="lj-sidebar__logo"></div>
-          <span className="lj-sidebar__brand-name">映语</span>
-        </div>
-
-        <div className="lj-sidebar__actions">
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={handleNewSession}
-            className="lj-new-btn"
-            block
-          >
-            新对话
-          </Button>
-          <Input
-            placeholder="搜索会话"
-            // prefix={<SearchOutlined style={{ color: '#9ca3af' }} />}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+      {isDesktopWorkspace && (
+        <aside className="lj-sidebar">
+          <SessionPanel
+            sessions={sessions}
+            recentSessions={recentSessions}
+            generatingSessions={generatingSessions}
+            loading={sessionsLoading}
+            error={sessionsError}
+            searchQuery={searchQuery}
+            account={user?.account ?? '用户'}
+            activeSessionId={sessionId}
+            onSearchChange={setSearchQuery}
             onCompositionStart={() => setIsComposing(true)}
             onCompositionEnd={() => setIsComposing(false)}
-            className="lj-search-input"
-            maxLength={64}
-            allowClear
+            onScroll={handleSessionListScroll}
+            onRetry={loadSessions}
+            onNewSession={handleNewSession}
+            onSelectSession={handleSwitchSession}
+            onLogout={handleLogout}
+            getSessionTitle={(session) => session.productProfile?.product_name || session.topic || '未命名会话'}
+            getSessionMeta={(session) => `${sessionStatusText(session.status)} · ${formatRelativeTime(session.updatedAt)}`}
           />
-        </div>
-
-        <div className="lj-sidebar__list">
-          {sessions.length === 0 ? (
-            <div className="lj-sidebar__empty">
-              {sessionsLoading
-                ? '加载中…'
-                : sessionsError
-                  ? <Button type="link" onClick={loadSessions}>加载失败，点击重试</Button>
-                : searchQuery
-                  ? '未找到匹配的会话'
-                  : '暂无会话，点击新对话开始'}
-            </div>
-          ) : (
-            <>
-              {recentSessions.length > 0 && (
-                <div className="lj-session-group">
-                  <div className="lj-session-group__title">最近创作</div>
-                  <div onScroll={handleSessionListScroll} className="lj-session-list">
-                    {recentSessions.map(renderSessionItem)}
-                  </div>
-                </div>
-              )}
-              {generatingSessions.length > 0 && (
-                <div className="lj-session-group">
-                  <div className="lj-session-group__title">生成中</div>
-                  <div onScroll={handleSessionListScroll} className="lj-session-list">
-                    {generatingSessions.map(renderSessionItem)}
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-
-        <div className="lj-sidebar__footer">
-          <div className="lj-sidebar__workspace">
-            <UserMenu account={user?.account ?? '用户'} onLogout={handleLogout} />
-            {/* <FolderOpenOutlined />
-            <span>个人工作区 · {assets.length + scripts.length + videos.length} 项创作资产</span> */}
-          </div>
-        </div>
-      </aside>
+        </aside>
+      )}
 
       {/* ===== 中间主区域 ===== */}
       <main className="lj-main">
         <>
+            <div className="lj-mobile-topbar">
+              <button
+                type="button"
+                className="lj-mobile-topbar__button"
+                aria-label="打开会话列表"
+                onClick={() => setMobileSessionOpen(true)}
+              >
+                <MenuOutlined />
+              </button>
+              <div className="lj-mobile-topbar__title">
+                {currentSession?.topic || '未命名会话'}
+              </div>
+              <button
+                type="button"
+                className="lj-mobile-topbar__button"
+                aria-label="打开素材、脚本和视频面板"
+                onClick={() => setMobileResourceOpen(true)}
+              >
+                <FolderOpenOutlined />
+              </button>
+            </div>
             {/* 顶部状态栏 */}
             <div className="lj-main__header">
               <div className="lj-main__header-left">
@@ -1395,19 +1359,88 @@ export default function VideoStoryboard() {
       </main>
 
       {/* ===== 右侧面板 ===== */}
-      <RightPanel
-        assets={assets}
-        scripts={scripts}
-        videos={videos}
-        currentScriptId={latestScript?.id}
-        activeTab={panelTab}
-        onTabChange={setPanelTab}
-        onAddAsset={handleAddAsset}
-        onDeleteAsset={handleDeleteAsset}
-        onUpdateAssetPurpose={handleUpdateAssetPurpose}
-        onSelectScript={handleSelectScriptMessage}
-        onSelectVideo={handleSelectVideo}
-      />
+      {isDesktopWorkspace ? (
+        <RightPanel
+          assets={assets}
+          scripts={scripts}
+          videos={videos}
+          currentScriptId={latestScript?.id}
+          activeTab={panelTab}
+          onTabChange={setPanelTab}
+          onAddAsset={handleAddAsset}
+          onDeleteAsset={handleDeleteAsset}
+          onUpdateAssetPurpose={handleUpdateAssetPurpose}
+          onSelectScript={handleSelectScriptMessage}
+          onSelectVideo={handleSelectVideo}
+        />
+      ) : (
+        <>
+          <Drawer
+            title="会话"
+            placement="left"
+            width="min(88vw, 360px)"
+            open={!isDesktopWorkspace && mobileSessionOpen}
+            onClose={() => setMobileSessionOpen(false)}
+            className="lj-mobile-drawer"
+            styles={{ body: { padding: 0 } }}
+          >
+            <SessionPanel
+              sessions={sessions}
+              recentSessions={recentSessions}
+              generatingSessions={generatingSessions}
+              loading={sessionsLoading}
+              error={sessionsError}
+              searchQuery={searchQuery}
+              account={user?.account ?? '用户'}
+              activeSessionId={sessionId}
+              onSearchChange={setSearchQuery}
+              onCompositionStart={() => setIsComposing(true)}
+              onCompositionEnd={() => setIsComposing(false)}
+              onScroll={handleSessionListScroll}
+              onRetry={loadSessions}
+              onNewSession={handleNewSession}
+              onSelectSession={handleSwitchSession}
+              onLogout={handleLogout}
+              getSessionTitle={(session) => session.productProfile?.product_name || session.topic || '未命名会话'}
+              getSessionMeta={(session) => `${sessionStatusText(session.status)} · ${formatRelativeTime(session.updatedAt)}`}
+            />
+          </Drawer>
+
+          <Drawer
+            title="素材与任务"
+            placement="right"
+            width="min(94vw, 420px)"
+            open={!isDesktopWorkspace && mobileResourceOpen}
+            onClose={() => setMobileResourceOpen(false)}
+            className="lj-mobile-drawer lj-mobile-resource-drawer"
+            styles={{ body: { padding: 0 } }}
+          >
+            <RightPanel
+              className="lj-right-panel--drawer"
+              assets={assets}
+              scripts={scripts}
+              videos={videos}
+              currentScriptId={latestScript?.id}
+              activeTab={panelTab}
+              onTabChange={setPanelTab}
+              onAddAsset={() => {
+                setMobileResourceOpen(false)
+                handleAddAsset()
+              }}
+              onDeleteAsset={handleDeleteAsset}
+              onUpdateAssetPurpose={handleUpdateAssetPurpose}
+              onSelectScript={(script) => {
+                setMobileResourceOpen(false)
+                handleSelectScriptMessage(script)
+              }}
+              onSelectVideo={(video) => {
+                setMobileResourceOpen(false)
+                handleSelectVideo(video)
+              }}
+            />
+          </Drawer>
+        </>
+      )}
     </div>
   )
 }

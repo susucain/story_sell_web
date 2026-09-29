@@ -27,6 +27,7 @@ interface RightPanelProps {
   onUpdateAssetPurpose?: (asset: AssetItem, purpose: 'analysis' | 'reference' | 'all') => void
   onSelectScript?: (script: ScriptVersion) => void
   onSelectVideo?: (video: VideoTaskItem) => void
+  className?: string
 }
 
 export type TabKey = 'assets' | 'scripts' | 'videos'
@@ -115,6 +116,7 @@ export const RightPanel = memo(function RightPanel({
   onUpdateAssetPurpose,
   onSelectScript,
   onSelectVideo,
+  className,
 }: RightPanelProps) {
   const [showAllScripts, setShowAllScripts] = useState(false)
 
@@ -183,7 +185,7 @@ export const RightPanel = memo(function RightPanel({
   )
 
   return (
-    <div className="lj-right-panel">
+    <div className={`lj-right-panel${className ? ` ${className}` : ''}`}>
       {/* 标签头 */}
       <div className="lj-right-panel__tabs">
         <button
