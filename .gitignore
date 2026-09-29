@@ -31,3 +31,5 @@ dist-ssr
 
 # docker
 *.tar
+
+docs/*
