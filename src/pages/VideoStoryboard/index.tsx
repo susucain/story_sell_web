@@ -1207,7 +1207,7 @@ export default function VideoStoryboard() {
                   <Input.TextArea
                     className="lj-textarea"
                     rows={1}
-                    autoSize={{ minRows: 1, maxRows: 4 }}
+                    autoSize={{ minRows: 1, maxRows: 5 }}
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
                     placeholder={generationScript

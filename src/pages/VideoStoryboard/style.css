@@ -921,8 +921,10 @@ html {
   cursor: not-allowed;
 }
 
+/* 不能用 flex:1：它把 flex-basis 设为 0%，主轴尺寸由 flex 分配，
+   antd autoSize 写在 textarea 上的行内 height 会被直接忽略，输入框不再随内容长高 */
 .lj-textarea.ant-input {
-  flex: 1;
+  flex: none;
   resize: none;
   border-radius: var(--lj-radius-sm) !important;
   padding: 6px 2px !important;
