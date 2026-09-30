@@ -234,24 +234,33 @@ export default function VideoStoryboard() {
   const historyAbortRef = useRef<AbortController | null>(null)
   const chatStartedRef = useRef(false)
   const latestChatRequestRef = useRef<VideoStoryboardRetryRequest | null>(null)
+  const initialSessionResolvedRef = useRef(false)
   const [retryAvailable, setRetryAvailable] = useState(false)
   const [sessionValidated, setSessionValidated] = useState(false)
 
+  // 会话 id 只在本次挂载的首个加载结果里解析一次。之后的任何刷新（新建会话、发消息后刷新、
+  // 生成完成刷新）都不得改写当前会话：新建的会话还没入库，不在列表里，会被误判成过期缓存
+  // 而被"最近的会话"覆盖。
   const handleSessionsLoaded = useCallback((loadedSessions: SessionSummary[]) => {
-    const storageKey = getSessionStorageKey(user.id)
-    const resolvedSessionId = resolveInitialSessionId({
-      cachedSessionId: localStorage.getItem(storageKey),
-      sessions: loadedSessions,
-      createSessionId,
-    })
-    localStorage.setItem(storageKey, resolvedSessionId)
-    setSessionId((currentSessionId) => (
-      currentSessionId === resolvedSessionId ? currentSessionId : resolvedSessionId
-    ))
+    if (!initialSessionResolvedRef.current) {
+      initialSessionResolvedRef.current = true
+      const storageKey = getSessionStorageKey(user.id)
+      const resolvedSessionId = resolveInitialSessionId({
+        cachedSessionId: localStorage.getItem(storageKey),
+        sessions: loadedSessions,
+        createSessionId,
+      })
+      localStorage.setItem(storageKey, resolvedSessionId)
+      setSessionId((currentSessionId) => (
+        currentSessionId === resolvedSessionId ? currentSessionId : resolvedSessionId
+      ))
+    }
     setSessionValidated(true)
   }, [user.id])
 
   const handleSessionsLoadFailed = useCallback(() => {
+    // 首个加载失败时也标记已解析，避免后续某次刷新补做解析时覆盖用户刚新建的会话
+    initialSessionResolvedRef.current = true
     setSessionValidated(true)
   }, [])
 
