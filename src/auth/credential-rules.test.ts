@@ -25,14 +25,20 @@ async function expectInvalid(
 describe('normalizeAccount', () => {
   it('mirrors the backend transform', () => {
     expect(normalizeAccount('  MyAccount  ')).toBe('myaccount')
+    expect(normalizeAccount('  创作者小明  ')).toBe('创作者小明')
     expect(normalizeAccount(undefined)).toBeUndefined()
   })
 })
 
 describe('validateAccount', () => {
-  it('accepts a valid account', async () => {
+  it('accepts letters, digits, underscore, dot and hyphen', async () => {
     await expectValid(validateAccount, 'creator_01')
     await expectValid(validateAccount, 'a1.2-3')
+  })
+
+  it('accepts Chinese accounts', async () => {
+    await expectValid(validateAccount, '创作者小明')
+    await expectValid(validateAccount, '小明2026')
   })
 
   it('accepts uppercase input because the backend lowercases it', async () => {
@@ -45,12 +51,14 @@ describe('validateAccount', () => {
 
   it('rejects accounts longer than 64 characters', async () => {
     await expectInvalid(validateAccount, 'a'.repeat(65), '账号仅支持')
+    await expectInvalid(validateAccount, '创'.repeat(65), '账号仅支持')
   })
 
   it('rejects accounts with illegal characters or illegal first character', async () => {
     await expectInvalid(validateAccount, 'ab cd', '账号仅支持')
-    await expectInvalid(validateAccount, '账号123', '账号仅支持')
+    await expectInvalid(validateAccount, 'user@1', '账号仅支持')
     await expectInvalid(validateAccount, '_abc', '账号仅支持')
+    await expectInvalid(validateAccount, '.abc', '账号仅支持')
   })
 
   it('defers empty values to the required rule', async () => {
