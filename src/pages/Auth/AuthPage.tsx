@@ -2,6 +2,7 @@ import { Button, Form, Input, message } from 'antd'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import { useAuth } from '../../auth/auth-context'
+import { accountRules, confirmPasswordRules, loginPasswordRules, registerPasswordRules } from '../../auth/credential-rules'
 import { reportError } from '../../lib/report-error'
 import './style.css'
 
@@ -38,11 +39,11 @@ export function AuthPage({ mode }: AuthPageProps) {
       <div className="auth-workspace-preview"><strong>静音榨汁杯短视频策划</strong><div className="auth-preview-row"><span /><i /><i /></div><div className="auth-preview-row"><span /><i /><i /></div></div>
     </section>
     <section className="auth-form-panel"><div className="auth-form">
-      <div className="auth-form-heading"><div><h2>{isRegister ? '创建账号' : '欢迎回来'}</h2><p>{isRegister ? '注册灵剪 AI，开始你的创作' : '登录灵剪 AI，继续你的创作'}</p></div><Link to={isRegister ? '/login' : '/register'}>{isRegister ? '返回登录' : '注册账号'}</Link></div>
+      <div className="auth-form-heading"><div><h2>{isRegister ? '创建账号' : '欢迎回来'}</h2><p>{isRegister ? '注册映语 AI，开始你的创作' : '登录映语 AI，继续你的创作'}</p></div><Link to={isRegister ? '/login' : '/register'}>{isRegister ? '返回登录' : '注册账号'}</Link></div>
       <Form layout="vertical" requiredMark={false} onFinish={submit}>
-        <Form.Item label="账号" name="account" rules={[{ required: true, message: '请输入账号' }]}><Input autoComplete="username" placeholder="请输入账号" /></Form.Item>
-        <Form.Item label="密码" name="password" rules={[{ required: true, message: '请输入密码' }]}><Input.Password autoComplete={isRegister ? 'new-password' : 'current-password'} placeholder="请输入密码" /></Form.Item>
-        {isRegister && <Form.Item label="确认密码" name="confirmPassword" dependencies={['password']} rules={[{ required: true, message: '请再次输入密码' }, ({ getFieldValue }) => ({ validator: (_, value) => !value || getFieldValue('password') === value ? Promise.resolve() : Promise.reject(new Error('两次输入的密码不一致')) })]}><Input.Password autoComplete="new-password" placeholder="再次输入密码" /></Form.Item>}
+        <Form.Item label="账号" name="account" rules={accountRules}><Input autoComplete="username" placeholder="请输入账号" /></Form.Item>
+        <Form.Item label="密码" name="password" rules={isRegister ? registerPasswordRules : loginPasswordRules}><Input.Password autoComplete={isRegister ? 'new-password' : 'current-password'} placeholder="请输入密码" /></Form.Item>
+        {isRegister && <Form.Item label="确认密码" name="confirmPassword" dependencies={['password']} rules={confirmPasswordRules}><Input.Password autoComplete="new-password" placeholder="再次输入密码" /></Form.Item>}
         <Button type="primary" htmlType="submit" loading={submitting} block>{isRegister ? '创建账号' : '登录'}</Button>
       </Form>
       <p className="auth-agreement">{isRegister ? '创建账号' : '登录'}即代表你同意服务协议和隐私政策</p>
