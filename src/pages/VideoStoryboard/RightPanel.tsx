@@ -1,5 +1,5 @@
 import { memo, useState } from 'react'
-import { Button, Popconfirm, Tooltip } from 'antd'
+import { Button, Image, Popconfirm, Tooltip } from 'antd'
 import {
   PlusOutlined,
   FileTextOutlined,
@@ -131,7 +131,7 @@ export const RightPanel = memo(function RightPanel({
         {asset.assetType === 'video' ? (
           <video src={asset.url} muted />
         ) : (
-          <img src={asset.thumbnailUrl || asset.url} alt={asset.name} />
+          <Image src={asset.thumbnailUrl || asset.url} alt={asset.name} preview />
         )}
         <span className="lj-asset-card__type">
           {asset.assetType === 'video' ? <VideoCameraOutlined /> : asset.assetType === 'url' ? <LinkOutlined /> : <PictureOutlined />}

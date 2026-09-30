@@ -1391,6 +1391,20 @@ html {
   object-fit: cover;
 }
 
+/* 缩略图改用 antd Image 后多包了一层：wrapper 默认 inline-block 撑不满格子，内层 img
+   又会被 antd 的 `.ant-image .ant-image-img { height: auto }` 按原图比例撑高，
+   所以要用更高优先级的规则把两层一起固定住。 */
+.lj-asset-card__thumb .ant-image,
+.lj-asset-card__thumb .ant-image .ant-image-img {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.lj-asset-card__thumb .ant-image .ant-image-img {
+  object-fit: cover;
+}
+
 .lj-asset-card__type {
   position: absolute;
   bottom: 2px;
