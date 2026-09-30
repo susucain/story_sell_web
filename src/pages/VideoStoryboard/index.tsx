@@ -145,6 +145,37 @@ async function detectMediaTypeFromNetwork(url: string): Promise<string> {
   return detectMediaTypeFromUrl(url)
 }
 
+const MIME_EXTENSIONS: Record<string, string> = {
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/gif': 'gif',
+  'image/webp': 'webp',
+  'image/svg+xml': 'svg',
+  'image/bmp': 'bmp',
+  'video/mp4': 'mp4',
+  'video/webm': 'webm',
+}
+
+let uploadSequence = 0
+
+/** 同一批选择/粘贴的文件会在同一个 tick 内创建，用时间戳会撞 id。 */
+function createUploadId(): string {
+  uploadSequence += 1
+  return `${Date.now()}-${uploadSequence}`
+}
+
+/** 后端按文件名取扩展名拼 OSS key，粘贴来的图片常常没有文件名，这里按 MIME 兜底。 */
+function toUploadFileName(file: File): string {
+  if (file.name.includes('.')) return file.name
+  const ext = MIME_EXTENSIONS[file.type]
+  if (ext) return `${file.name || '粘贴素材'}-${Date.now()}.${ext}`
+  return file.name || `素材-${Date.now()}`
+}
+
+function isUploadableFile(file: File): boolean {
+  return file.type.startsWith('image/') || file.type.startsWith('video/')
+}
+
 function formatRelativeTime(isoString: string): string {
   const date = new Date(isoString)
   const now = new Date()
@@ -584,15 +615,10 @@ export default function VideoStoryboard() {
   }
 
   // ===== 文件上传 =====
-  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
-      antdMessage.error('请选择图片或视频文件')
-      return
-    }
-
-    const id = Date.now().toString()
+  /** 单个文件：先插入本地预览占位，上传完成后替换成 OSS 地址。 */
+  async function uploadOneFile(file: File) {
+    const id = createUploadId()
+    const name = toUploadFileName(file)
     const mediaType = file.type
     const tempUrl = URL.createObjectURL(file)
     const durationSec = mediaType.startsWith('video/')
@@ -604,7 +630,7 @@ export default function VideoStoryboard() {
         id,
         url: tempUrl,
         mediaType,
-        name: file.name,
+        name,
         assetPurpose: 'all',
         durationSec,
         uploading: true,
@@ -612,7 +638,7 @@ export default function VideoStoryboard() {
     ])
 
     const formData = new FormData()
-    formData.append('file', file)
+    formData.append('file', file, name)
 
     try {
       const res = await apiFetch('/oss/upload', { method: 'POST', body: formData })
@@ -631,8 +657,38 @@ export default function VideoStoryboard() {
       setImages((prev) => prev.filter((img) => img.id !== id))
       URL.revokeObjectURL(tempUrl)
     }
+  }
 
+  /** 选择文件和粘贴共用这一条链路，一次可以带入多个文件。 */
+  async function uploadFiles(files: File[]) {
+    const accepted = files.filter(isUploadableFile)
+    if (accepted.length === 0) {
+      antdMessage.error('请选择图片或视频文件')
+      return
+    }
+    await Promise.all(accepted.map((file) => uploadOneFile(file)))
+  }
+
+  function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? [])
+    // 先取快照再清空，否则同一个文件无法连续选择两次
     e.target.value = ''
+    if (files.length === 0) return
+    void uploadFiles(files)
+  }
+
+  /**
+   * 粘贴的图片/视频文件走和「添加素材」相同的上传链路。只有确实拿到媒体文件才
+   * preventDefault，纯文本粘贴保持浏览器默认行为。
+   */
+  function handlePaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
+    const files = Array.from(e.clipboardData?.items ?? [])
+      .filter((item) => item.kind === 'file')
+      .map((item) => item.getAsFile())
+      .filter((file): file is File => file !== null && isUploadableFile(file))
+    if (files.length === 0) return
+    e.preventDefault()
+    void uploadFiles(files)
   }
 
   async function handleAddNetworkImage() {
@@ -643,7 +699,7 @@ export default function VideoStoryboard() {
       return
     }
 
-    const id = Date.now().toString()
+    const id = createUploadId()
     const mediaType = detectMediaTypeFromUrl(url)
     const name = url.split('/').pop() || '网络素材'
     setImages((prev) => [
@@ -1216,6 +1272,7 @@ export default function VideoStoryboard() {
                         ? '描述要修改的时间范围和画面内容…'
                       : '补充修改方向，或上传达人、商品素材来生成视频…'}
                     disabled={status !== 'ready' || generating}
+                    onPaste={handlePaste}
                     onPressEnter={(e) => {
                       if (!e.shiftKey) {
                         e.preventDefault()
@@ -1334,7 +1391,7 @@ export default function VideoStoryboard() {
                           <FileTextOutlined />
                         </div>
                         <div className="lj-upload-zone__title">点击上传图片或视频</div>
-                        <div className="lj-upload-zone__hint">支持 JPG、PNG、GIF、MP4、WebM 等格式</div>
+                        <div className="lj-upload-zone__hint">支持 JPG、PNG、GIF、MP4、WebM 等格式，也可直接粘贴</div>
                       </div>
                     ),
                   },
