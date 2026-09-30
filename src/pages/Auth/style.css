@@ -136,6 +136,12 @@
     border-radius: 6px
 }
 
+/* 密码框的内层 input 同样命中上面的 .ant-input，会让外层 affix wrapper
+   再叠加自己的 padding(4px) 与边框(1px)，撑成 52px；高度交给 wrapper 独占 */
+.auth-form .ant-input-affix-wrapper>.ant-input {
+    min-height: 0
+}
+
 .auth-form .ant-btn-primary {
     min-height: 42px;
     border-radius: 6px;
