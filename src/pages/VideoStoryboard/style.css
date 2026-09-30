@@ -1167,7 +1167,9 @@ html {
   overflow: hidden;
 }
 
-.lj-right-panel--drawer {
+/* 两个类选择器：下面的 `@media (max-width: 1200px)` 里 `.lj-right-panel { width: 280px }`
+   特异性相同且写在后面，只写单个类会被它盖掉，抽屉里就会剩一截空白 */
+.lj-right-panel.lj-right-panel--drawer {
   width: 100%;
   height: 100%;
   border-left: 0;
