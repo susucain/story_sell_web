@@ -1895,6 +1895,17 @@ html {
     border-top: 1px solid var(--lj-border-soft);
   }
 
+  /* 两个按钮并排的总宽超过卡片内容区，flex-end 会把「引用脚本修改」挤出左边界被裁掉，
+     窄屏改成上下排列各自占满一行 */
+  .lj-script-card__actions {
+    flex-direction: column;
+    padding: 12px 14px 14px;
+  }
+
+  .lj-script-card__actions .ant-btn {
+    width: 100%;
+  }
+
   .video-message-preview {
     gap: 14px;
     padding: 14px 12px;
