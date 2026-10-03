@@ -1966,6 +1966,91 @@ html {
   }
 }
 
+/* ===== 续写衔接方式弹窗 ===== */
+.lj-continue-modal .ant-modal-content {
+  padding: 24px 28px 20px;
+  border-radius: var(--lj-radius-lg);
+  box-shadow: var(--lj-shadow-md);
+}
+
+.lj-continue-modal .ant-modal-header {
+  margin-bottom: 14px;
+  padding-bottom: 0;
+  border-bottom: none;
+  background: transparent;
+}
+
+.lj-continue-modal .ant-modal-title {
+  font-weight: 600;
+  font-size: 17px;
+  color: var(--lj-text);
+}
+
+.lj-continue-modal .ant-modal-close {
+  color: var(--lj-text-tertiary);
+}
+
+.lj-continue-modal .ant-modal-close:hover {
+  color: var(--lj-primary);
+  background: transparent;
+}
+
+.lj-continue-modal .ant-modal-body p {
+  margin: 0 0 16px;
+  color: var(--lj-text-secondary);
+  line-height: 1.6;
+}
+
+.lj-continue-modal .ant-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lj-continue-modal .ant-radio-wrapper {
+  color: var(--lj-text);
+}
+
+.lj-continue-modal .ant-radio-wrapper:hover .ant-radio-inner {
+  border-color: var(--lj-primary);
+}
+
+.lj-continue-modal .ant-radio-checked .ant-radio-inner {
+  border-color: var(--lj-primary);
+  background: var(--lj-primary);
+}
+
+.lj-continue-modal .ant-radio-input:focus-visible + .ant-radio-inner {
+  box-shadow: 0 0 0 3px var(--lj-primary-border);
+}
+
+/* 主按钮：与页面【发送】按钮同一主色 */
+.lj-continue-modal .ant-modal-footer .ant-btn-primary {
+  background: var(--lj-primary);
+  border-color: var(--lj-primary);
+  color: var(--lj-bg);
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(99, 102, 241, 0.25);
+}
+
+.lj-continue-modal .ant-modal-footer .ant-btn-primary:hover:not(:disabled) {
+  background: var(--lj-primary-hover);
+  border-color: var(--lj-primary-hover);
+}
+
+/* 次按钮：与页面次级按钮一致 */
+.lj-continue-modal .ant-modal-footer .ant-btn:not(.ant-btn-primary) {
+  border: 1px solid var(--lj-border);
+  background: var(--lj-bg);
+  color: var(--lj-text);
+  font-weight: 500;
+}
+
+.lj-continue-modal .ant-modal-footer .ant-btn:not(.ant-btn-primary):hover {
+  border-color: var(--lj-primary);
+  color: var(--lj-primary);
+}
+
 /* ===== 添加素材弹窗 ===== */
 .lj-file-modal .ant-modal-content {
   padding: 40px 48px 48px;

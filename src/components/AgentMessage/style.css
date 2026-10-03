@@ -253,6 +253,10 @@
   --pp-text-secondary: #6b7280;
   --pp-text-tertiary: #9ca3af;
   --pp-success: #10b981;
+  --pp-danger: #ef4444;
+  --pp-danger-soft: rgba(239, 68, 68, 0.08);
+  --pp-danger-border: rgba(239, 68, 68, 0.28);
+  --pp-danger-text: #b91c1c;
   --pp-radius: 12px;
   --pp-radius-sm: 8px;
 
@@ -458,6 +462,20 @@
   background: rgba(245, 158, 11, 0.1);
 }
 
+.step.error .step-marker {
+  background: var(--pp-danger);
+  border-color: var(--pp-danger);
+  color: #fff;
+}
+
+.step.error .step-name {
+  color: var(--pp-danger-text);
+}
+
+.step.error .step-time {
+  color: var(--pp-danger);
+}
+
 .step-content {
   flex: 1;
   min-width: 0;
@@ -514,6 +532,15 @@
   background: var(--pp-primary-bg);
 }
 
+.child-item.error {
+  border-color: var(--pp-danger-border);
+  background: var(--pp-danger-soft);
+}
+
+.child-item.error .child-title {
+  color: var(--pp-danger-text);
+}
+
 .child-icon {
   width: 18px;
   height: 18px;
@@ -527,6 +554,10 @@
 
 .child-icon.pending {
   color: var(--pp-text-tertiary);
+}
+
+.child-icon.error {
+  color: var(--pp-danger);
 }
 
 .child-body {
@@ -553,6 +584,11 @@
   background: rgba(99, 102, 241, 0.08);
   color: var(--pp-primary);
   margin-left: 8px;
+}
+
+.child-tag.success {
+  background: rgba(16, 185, 129, 0.1);
+  color: #059669;
 }
 
 .capability-list {

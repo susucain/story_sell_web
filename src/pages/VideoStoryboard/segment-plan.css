@@ -1,0 +1,235 @@
+/* ============================================
+   分段生成计划面板
+   ============================================ */
+
+.lj-segplan {
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid var(--lj-primary-border);
+  border-radius: var(--lj-radius-lg);
+  background: var(--lj-bg);
+  box-shadow: var(--lj-shadow);
+}
+
+.lj-segplan__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.lj-segplan__heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.lj-segplan__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--lj-primary-bg);
+  color: var(--lj-primary);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.lj-segplan__title {
+  font-weight: 600;
+  color: var(--lj-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lj-segplan__meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.lj-segplan__status {
+  font-size: 12px;
+  color: var(--lj-text-secondary);
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--lj-bg-section);
+  white-space: nowrap;
+}
+
+.lj-segplan__status--awaiting_confirm {
+  color: var(--lj-warning);
+  background: rgba(245, 158, 11, 0.12);
+}
+
+.lj-segplan__status--completed {
+  color: var(--lj-success);
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.lj-segplan__status--failed,
+.lj-segplan__status--cancelled {
+  color: var(--lj-danger);
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.lj-segplan__progress {
+  margin: 12px 0 16px;
+}
+
+.lj-segplan__progress-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--lj-text-secondary);
+  margin-bottom: 6px;
+}
+
+.lj-segplan__progress-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--lj-bg-section);
+  overflow: hidden;
+}
+
+.lj-segplan__progress-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--lj-primary);
+  transition: width 0.3s ease;
+}
+
+.lj-segplan__note {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--lj-text-secondary);
+}
+
+.lj-segplan__segments {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lj-segplan__segment {
+  padding: 12px;
+  border: 1px solid var(--lj-border-soft);
+  border-radius: var(--lj-radius-md);
+  background: var(--lj-bg-soft);
+}
+
+.lj-segplan__segment--success {
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.lj-segplan__segment--active {
+  border-color: var(--lj-primary-border);
+}
+
+.lj-segplan__segment--error {
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.lj-segplan__segment-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.lj-segplan__segment-index {
+  font-weight: 600;
+  color: var(--lj-text);
+}
+
+.lj-segplan__segment-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--lj-text-secondary);
+}
+
+.lj-segplan__segment-meta {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--lj-text-tertiary);
+}
+
+.lj-segplan__segment-body {
+  margin-top: 10px;
+  font-size: 13px;
+}
+
+.lj-segplan__segment-body--active {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--lj-primary);
+}
+
+.lj-segplan__segment-body--error {
+  color: var(--lj-danger);
+  word-break: break-word;
+}
+
+.lj-segplan__video {
+  display: block;
+  width: 100%;
+  max-height: 320px;
+  margin-top: 10px;
+  border-radius: var(--lj-radius-sm);
+  background: #000;
+}
+
+.lj-segplan__confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--lj-border);
+}
+
+.lj-segplan__confirm-label {
+  font-size: 12px;
+  color: var(--lj-text-secondary);
+}
+
+.lj-segplan__mode {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.lj-segplan__segment-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.lj-segplan__footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: var(--lj-radius-sm);
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--lj-success);
+  font-size: 13px;
+}
+
+@media (max-width: 640px) {
+  .lj-segplan {
+    padding: 12px;
+  }
+
+  .lj-segplan__title {
+    max-width: 40vw;
+  }
+}

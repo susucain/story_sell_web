@@ -31,8 +31,8 @@ export interface ProcessOutput {
 }
 
 export interface ProcessPhase {
-  /** 阶段标识。life-service 为固定三阶段，多 Agent 场景为 `dispatch-<role>` */
-  id: string
+  /** 阶段标识。life-service 为固定三阶段，多 Agent 角色分工作为阶段子项（`role-<roleId>`） */
+  id: string;
   title: string
   description: string
   status: ProcessStatus

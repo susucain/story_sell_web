@@ -225,13 +225,23 @@ function FileIcon({ className }: { className?: string }) {
   )
 }
 
+function AlertIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 8v4" />
+      <path d="M12 16h.01" />
+    </svg>
+  )
+}
+
 /** 创作过程面板：按设计稿渲染三阶段时间线 */
 function ProcessPanel({ parts, isStreaming }: { parts: UIMessage['parts']; isStreaming?: boolean }) {
   const [expanded, setExpanded] = useState(true)
   const state = useProcessState(parts)
   if (!state || state.phases.length === 0) return null
 
-  // const completedPhases = state.phases.filter((p) => p.status === 'completed').length
+  const completedPhases = state.phases.filter((p) => p.status === 'completed').length
   const operationCount = state.phases.reduce((sum, phase) => {
     return (
       sum +
@@ -282,7 +292,7 @@ function ProcessPanel({ parts, isStreaming }: { parts: UIMessage['parts']; isStr
             {state.phases.map((phase, index) => (
               <ProcessPhaseView key={phase.id} phase={phase} index={index + 1} isRunning={isRunning} />
             ))}
-            {/* <TimelineProgress completed={completedPhases} total={state.phases.length} /> */}
+            <TimelineProgress completed={completedPhases} total={state.phases.length} />
           </div>
         </div>
       )}
@@ -313,11 +323,22 @@ function ProcessPhaseView({
   const done = phase.status === 'completed'
   const running = phase.status === 'running'
   const waiting = phase.status === 'waiting_for_user'
+  const failed = phase.status === 'error'
   const duration = phase.endTime && phase.startTime ? phase.endTime - phase.startTime : undefined
 
   return (
-    <div className={`step ${done ? 'done' : running ? 'running' : waiting ? 'waiting' : ''}`}>
-      <div className="step-marker">{done ? <CheckIcon className="step-marker__icon" /> : waiting ? '?' : index}</div>
+    <div className={`step ${done ? 'done' : running ? 'running' : waiting ? 'waiting' : failed ? 'error' : ''}`}>
+      <div className="step-marker">
+        {done ? (
+          <CheckIcon className="step-marker__icon" />
+        ) : failed ? (
+          <AlertIcon className="step-marker__icon" />
+        ) : waiting ? (
+          '?'
+        ) : (
+          index
+        )}
+      </div>
       <div className="step-content">
         <div className="step-header">
           <div>
@@ -325,7 +346,15 @@ function ProcessPhaseView({
             <div className="step-desc">{phase.description}</div>
           </div>
           <span className="step-time">
-            {done ? formatDuration(duration) : running ? '进行中' : waiting ? '等待确认' : '等待中'}
+            {done
+              ? formatDuration(duration)
+              : running
+                ? '进行中'
+                : waiting
+                  ? '等待确认'
+                  : failed
+                    ? '已中断'
+                    : '等待中'}
           </span>
         </div>
 
@@ -337,13 +366,15 @@ function ProcessPhaseView({
                   <CheckIcon className="child-icon success" />
                 ) : item.status === 'running' ? (
                   <span className="spinner" />
+                ) : item.status === 'error' ? (
+                  <AlertIcon className="child-icon error" />
                 ) : (
                   <FileIcon className="child-icon pending" />
                 )}
                 <div className="child-body">
                   <span className="child-title">
                     {item.title}
-                    {item.tag && <span className="child-tag">{item.tag.text}</span>}
+                    {item.tag && <span className={`child-tag ${item.tag.type}`}>{item.tag.text}</span>}
                   </span>
                   {item.description && <div className="child-sub">{item.description}</div>}
                 </div>
@@ -407,6 +438,8 @@ function GeneratePhaseBody({ phase, isRunning }: { phase: ProcessPhase; isRunnin
                 <span className="spinner" />
               ) : action.status === 'waiting_for_user' ? (
                 <span className="child-icon pending">?</span>
+              ) : action.status === 'error' ? (
+                <AlertIcon className="child-icon error" />
               ) : (
                 <FileIcon className="child-icon pending" />
               )}
@@ -569,12 +602,14 @@ function VideoGenerationMessageCard({
   task,
   script,
   onReferenceVideo,
+  onContinueVideo,
   isFocused,
 }: {
   metadata: VideoGenerationMetadata
   task?: VideoTaskItem
   script?: ScriptVersion
   onReferenceVideo?: (task: VideoTaskItem) => void
+  onContinueVideo?: (task: VideoTaskItem) => void
   isFocused?: boolean
 }) {
   const status = task?.status ?? metadata.status
@@ -608,6 +643,12 @@ function VideoGenerationMessageCard({
               className="lj-btn-ghost"
             >
               引用视频修改
+            </Button>
+            <Button
+              onClick={() => onContinueVideo?.(task)}
+              className="lj-btn-ghost"
+            >
+              基于此视频续写
             </Button>
             <a href={videoUrl} download target="_blank" rel="noreferrer">
               <Button type="primary" icon={<DownloadOutlined />} className="lj-btn-primary">下载</Button>
@@ -664,6 +705,8 @@ export interface AgentMessageProps {
   videos?: VideoTaskItem[]
   /** 将已生成视频作为下一次生成的参考素材 */
   onReferenceVideo?: (task: VideoTaskItem) => void
+  /** 基于已生成视频续写后续剧情 */
+  onContinueVideo?: (task: VideoTaskItem) => void
   /** 右侧视频任务卡定位到的消息 */
   focusedVideoTaskId?: string
 }
@@ -681,6 +724,7 @@ export const AgentMessage = memo(function AgentMessage({
   generating = false,
   videos = [],
   onReferenceVideo,
+  onContinueVideo,
   focusedVideoTaskId,
 }: AgentMessageProps) {
   // user 角色
@@ -733,6 +777,7 @@ export const AgentMessage = memo(function AgentMessage({
             task={task}
             script={script}
             onReferenceVideo={onReferenceVideo}
+            onContinueVideo={onContinueVideo}
             isFocused={focusedVideoTaskId === videoMetadata.taskId}
           />
         </div>
@@ -833,6 +878,7 @@ export const AgentMessage = memo(function AgentMessage({
   if (prev.generating !== next.generating) return false
   if (prev.videos !== next.videos) return false
   if (prev.onReferenceVideo !== next.onReferenceVideo) return false
+  if (prev.onContinueVideo !== next.onContinueVideo) return false
   if (prev.isLatestAssistant !== next.isLatestAssistant) return false
   if (!next.isStreaming) return true
   return false

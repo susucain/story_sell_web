@@ -1,5 +1,12 @@
 import type { UIMessage } from 'ai'
-import type { AssetItem, ScriptVersion, SessionPage, VideoTaskItem } from './types'
+import type {
+  AssetItem,
+  ScriptVersion,
+  SessionPage,
+  VideoContinuityMode,
+  VideoGenerationPlan,
+  VideoTaskItem,
+} from './types'
 import { apiFetch } from '../../lib/api-fetch'
 import { reportError } from '../../lib/report-error'
 
@@ -83,6 +90,7 @@ export interface GenerateVideoBody {
   script_id: number
   session_id: string
   user_prompt?: string
+  mode?: 'single' | 'segmented'
   assets?: Array<{
     type: 'image' | 'video'
     url: string
@@ -95,6 +103,55 @@ export function generateVideo(body: GenerateVideoBody): Promise<VideoTaskItem> {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
+  })
+}
+
+/** 长脚本分段生成：创建分段计划并提交第 1 段 */
+export function createSegmentedVideo(
+  body: Omit<GenerateVideoBody, 'mode'>,
+): Promise<VideoGenerationPlan> {
+  return fetchJson<VideoGenerationPlan>(`${BASE}/generate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...body, mode: 'segmented' }),
+  })
+}
+
+export function fetchGenerationPlan(planId: number): Promise<VideoGenerationPlan> {
+  return fetchJson<VideoGenerationPlan>(`${BASE}/generate/plan/${planId}`)
+}
+
+/** 用户确认上一段后生成下一段，衔接方式由用户选择 */
+export function startNextSegment(
+  planId: number,
+  continuityMode: VideoContinuityMode,
+): Promise<VideoGenerationPlan> {
+  return fetchJson<VideoGenerationPlan>(`${BASE}/generate/plan/${planId}/next`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ continuity_mode: continuityMode }),
+  })
+}
+
+/** 重抽指定段；该段之后的已生成段会作废并需要重新生成 */
+export function regenerateSegment(
+  planId: number,
+  segmentIndex: number,
+  continuityMode: VideoContinuityMode,
+): Promise<VideoGenerationPlan> {
+  return fetchJson<VideoGenerationPlan>(
+    `${BASE}/generate/plan/${planId}/segments/${segmentIndex}/regenerate`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ continuity_mode: continuityMode }),
+    },
+  )
+}
+
+export function cancelGenerationPlan(planId: number): Promise<VideoGenerationPlan> {
+  return fetchJson<VideoGenerationPlan>(`${BASE}/generate/plan/${planId}/cancel`, {
+    method: 'POST',
   })
 }
 

@@ -13,6 +13,10 @@ export interface VideoStoryboardRetryRequest {
     session_id: string
     referenced_script_id?: number
     source_video_asset_id?: number
+    /** 引用视频的意图：缺省为编辑原片，continue 为基于原片续写 */
+    source_video_intent?: 'edit' | 'continue'
+    /** 仅续写时有意义：首段与原片的衔接方式 */
+    continuity_mode?: 'extend' | 'frame_bridge'
   }
 }
 

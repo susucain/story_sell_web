@@ -35,6 +35,7 @@ export const ScriptCard = memo(function ScriptCard({
   generating = false,
 }: ScriptCardProps) {
   const videoEdit = parsed.edit?.mode === 'full_video_edit' ? parsed.edit : undefined
+  const continuation = parsed.continuation?.mode === 'continuation' ? parsed.continuation : undefined
   const sourceVideo = videoEdit
     ? assets.find((asset) => asset.id === videoEdit.sourceAssetId)
     : undefined
@@ -52,7 +53,9 @@ export const ScriptCard = memo(function ScriptCard({
       {/* 头部 */}
       <div className="lj-script-card__header">
         <div className="lj-script-card__version">
-          {videoEdit ? '视频修改任务' : '视频分镜脚本'} · V{parsed.version}
+          {continuation
+            ? `视频续写脚本 · 承接 V${parsed.basedOnVersion ?? '原稿'} · V${parsed.version}`
+            : `${videoEdit ? '视频修改任务' : '视频分镜脚本'} · V${parsed.version}`}
         </div>
         <h3 className="lj-script-card__title">{parsed.title}</h3>
         {parsed.description && (

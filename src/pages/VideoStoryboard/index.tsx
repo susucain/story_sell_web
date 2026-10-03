@@ -18,6 +18,7 @@ import {
   Image,
   message as antdMessage,
   Modal,
+  Radio,
   Tabs,
   Tooltip,
   Drawer,
@@ -25,8 +26,8 @@ import {
 import { AgentMessage } from '../../components/AgentMessage'
 import { RightPanel } from './RightPanel'
 import { SessionPanel } from './SessionPanel'
-import type { SessionSummary, AssetItem, ScriptVersion, VideoTaskItem, ParsedStoryboard } from './types'
-import { toParsedStoryboard } from './types'
+import type { SessionSummary, AssetItem, ScriptVersion, VideoTaskItem, ParsedStoryboard, VideoContinuityMode } from './types'
+import { toParsedStoryboard, shouldUseSegmentedGeneration } from './types'
 import {
   fetchHistory,
   fetchAssets,
@@ -38,6 +39,8 @@ import {
   fetchVideoTasksBySession,
   subscribeTaskStatus,
 } from './api'
+import { useGenerationPlan } from './useGenerationPlan'
+import { SegmentPlanPanel } from './SegmentPlanPanel'
 import { useSessionList } from './useSessionList'
 import { createSessionId } from './session-id'
 import {
@@ -64,6 +67,8 @@ import './style.css'
 
 const SESSION_PAGE_SIZE = 20
 const CHAT_UPDATE_THROTTLE_MS = 80
+/** 视频模型单次生成上限（秒），超过即走分段生成 */
+const MAX_SEGMENT_DURATION_SEC = 15
 
 // 自定义 transport：只发送最新消息，历史由后端从数据库加载
 class LatestMessageOnlyTransport extends DefaultChatTransport<UIMessage> {
@@ -255,6 +260,11 @@ export default function VideoStoryboard() {
   const [scripts, setScripts] = useState<ScriptVersion[]>([])
   const [referencedScriptId, setReferencedScriptId] = useState<number | undefined>()
   const [referencedVideoAsset, setReferencedVideoAsset] = useState<AssetItem | null>(null)
+  /** 有值表示当前是「基于原片续写」，值为首段与原片的衔接方式；为空表示编辑原片 */
+  const [continuationMode, setContinuationMode] = useState<VideoContinuityMode>()
+  /** 待选择衔接方式的续写起点视频 */
+  const [continueTask, setContinueTask] = useState<VideoTaskItem | null>(null)
+  const [continueDraftMode, setContinueDraftMode] = useState<VideoContinuityMode>('extend')
   const [generationScriptId, setGenerationScriptId] = useState<number | undefined>()
   const [panelTab, setPanelTab] = useState<'assets' | 'scripts' | 'videos'>('assets')
   const [mobileSessionOpen, setMobileSessionOpen] = useState(false)
@@ -408,6 +418,55 @@ export default function VideoStoryboard() {
       })
   }, [setMessages])
 
+  // ===== 长脚本分段生成 =====
+  const handlePlanSettled = useCallback(() => {
+    loadVideos()
+    loadSessions()
+    loadScripts()
+    refreshHistoryWhenIdle(sessionId)
+  }, [loadVideos, loadSessions, loadScripts, refreshHistoryWhenIdle, sessionId])
+
+  const {
+    plan: generationPlan,
+    pending: planPending,
+    startSegmented,
+    confirmNext: confirmNextSegment,
+    regenerate: regeneratePlanSegment,
+    cancel: cancelPlan,
+    dismiss: dismissPlan,
+  } = useGenerationPlan(sessionId, {
+    videos,
+    onSettled: handlePlanSettled,
+  })
+
+  const handleConfirmNextSegment = useCallback(async (mode: 'extend' | 'frame_bridge') => {
+    try {
+      await confirmNextSegment(mode)
+    } catch (err: unknown) {
+      antdMessage.error(`生成下一段失败: ${getErrorMessage(err)}`)
+    }
+  }, [confirmNextSegment])
+
+  const handleRegenerateSegment = useCallback(async (
+    segmentIndex: number,
+    mode: 'extend' | 'frame_bridge',
+  ) => {
+    try {
+      await regeneratePlanSegment(segmentIndex, mode)
+    } catch (err: unknown) {
+      antdMessage.error(`重抽第 ${segmentIndex} 段失败: ${getErrorMessage(err)}`)
+    }
+  }, [regeneratePlanSegment])
+
+  const handleCancelPlan = useCallback(async () => {
+    try {
+      await cancelPlan()
+      antdMessage.success('已取消分段计划，已完成的分段会保留')
+    } catch (err: unknown) {
+      antdMessage.error(`取消失败: ${getErrorMessage(err)}`)
+    }
+  }, [cancelPlan])
+
   useEffect(() => {
     if (status === 'ready') chatStartedRef.current = false
   }, [status])
@@ -537,6 +596,13 @@ export default function VideoStoryboard() {
     () => scripts.find((script) => script.id === generationScriptId) ?? null,
     [scripts, generationScriptId],
   )
+  // 脚本总时长超过单次生成上限时，走分段生成（每段由用户确认后续接）
+  const segmentedGeneration = useMemo(
+    () => (generationScript
+      ? shouldUseSegmentedGeneration(generationScript, MAX_SEGMENT_DURATION_SEC)
+      : false),
+    [generationScript],
+  )
   const referenceAssets = useMemo(
     () => assets.filter((asset) => ['reference', 'all'].includes(asset.assetPurpose)),
     [assets],
@@ -577,6 +643,7 @@ export default function VideoStoryboard() {
     setFocusedScriptId(undefined)
     setReferencedScriptId(undefined)
     setReferencedVideoAsset(null)
+    setContinuationMode(undefined)
     setGenerationScriptId(undefined)
     refreshAfterChatRef.current = false
     setAssets([])
@@ -607,6 +674,7 @@ export default function VideoStoryboard() {
     setFocusedScriptId(undefined)
     setReferencedScriptId(undefined)
     setReferencedVideoAsset(null)
+    setContinuationMode(undefined)
     setGenerationScriptId(undefined)
     setMobileSessionOpen(false)
     refreshAfterChatRef.current = false
@@ -770,6 +838,8 @@ export default function VideoStoryboard() {
         session_id: sessionId,
         referenced_script_id: referencedScriptId,
         source_video_asset_id: referencedVideoAsset?.id,
+        source_video_intent: referencedVideoAsset && continuationMode ? 'continue' : undefined,
+        continuity_mode: referencedVideoAsset && continuationMode ? continuationMode : undefined,
       },
     }
     latestChatRequestRef.current = request
@@ -822,6 +892,7 @@ export default function VideoStoryboard() {
   const handleQuoteScript = useCallback((script: ScriptVersion) => {
     setReferencedScriptId(script.id)
     setReferencedVideoAsset(null)
+    setContinuationMode(undefined)
     setGenerationScriptId(undefined)
     setPrompt('')
   }, [])
@@ -829,6 +900,7 @@ export default function VideoStoryboard() {
   function handleClearReference() {
     setReferencedScriptId(undefined)
     setReferencedVideoAsset(null)
+    setContinuationMode(undefined)
   }
 
   // ===== 使用脚本生成视频 =====
@@ -841,44 +913,81 @@ export default function VideoStoryboard() {
     setGenerationScriptId(targetId)
     setReferencedScriptId(undefined)
     setReferencedVideoAsset(null)
+    setContinuationMode(undefined)
     setPrompt('')
     setImages([])
   }, [latestScript])
 
-  const handleReferenceVideo = useCallback(async (task: VideoTaskItem) => {
+  /** 把已生成视频挂成引用素材：缺省是编辑原片，传入 continuationMode 则为基于原片续写 */
+  const attachVideoReference = useCallback(async (
+    task: VideoTaskItem,
+    options: { name: string; continuationMode?: VideoContinuityMode },
+  ) => {
     if (!task.generatedVideoUrl) {
       antdMessage.error('该视频暂不可作为参考素材')
+      return false
+    }
+    if (!task.scriptId || !scripts.some((script) => script.id === task.scriptId)) {
+      antdMessage.error('未找到该视频关联的脚本')
+      return false
+    }
+
+    try {
+      const durationSec = task.duration ?? await readVideoDuration(task.generatedVideoUrl)
+      if (!durationSec) {
+        antdMessage.error('无法读取原视频时长，暂不能创建任务')
+        return false
+      }
+      const asset = await createAsset({
+        session_id: sessionId,
+        asset_type: 'video',
+        // 编辑原片只作为参考素材使用，不参与视觉解析（后端据此直接落「已解析」）
+        asset_purpose: 'reference',
+        name: options.name,
+        url: task.generatedVideoUrl,
+        duration_sec: durationSec,
+      })
+      setReferencedScriptId(task.scriptId)
+      setReferencedVideoAsset(asset)
+      setContinuationMode(options.continuationMode)
+      setGenerationScriptId(undefined)
+      setPrompt('')
+      setImages([])
+      loadAssets()
+      return true
+    } catch (err: unknown) {
+      antdMessage.error(`引用视频失败: ${getErrorMessage(err)}`)
+      return false
+    }
+  }, [loadAssets, scripts, sessionId])
+
+  const handleReferenceVideo = useCallback((task: VideoTaskItem) => {
+    return attachVideoReference(task, { name: '已生成视频（局部修改原片）' })
+  }, [attachVideoReference])
+
+  /** 打开「基于此视频续写」的衔接方式选择弹窗 */
+  const handleContinueVideo = useCallback((task: VideoTaskItem) => {
+    if (!task.generatedVideoUrl) {
+      antdMessage.error('该视频暂不可作为续写起点')
       return
     }
     if (!task.scriptId || !scripts.some((script) => script.id === task.scriptId)) {
       antdMessage.error('未找到该视频关联的脚本')
       return
     }
+    setContinueDraftMode('extend')
+    setContinueTask(task)
+  }, [scripts])
 
-    try {
-      const durationSec = task.duration ?? await readVideoDuration(task.generatedVideoUrl)
-      if (!durationSec) {
-        antdMessage.error('无法读取原视频时长，暂不能创建修改任务')
-        return
-      }
-      const asset = await createAsset({
-        session_id: sessionId,
-        asset_type: 'video',
-        asset_purpose: 'all',
-        name: '已生成视频（局部修改原片）',
-        url: task.generatedVideoUrl,
-        duration_sec: durationSec,
-      })
-      setReferencedScriptId(task.scriptId)
-      setReferencedVideoAsset(asset)
-      setGenerationScriptId(undefined)
-      setPrompt('')
-      setImages([])
-      loadAssets()
-    } catch (err: unknown) {
-      antdMessage.error(`引用视频失败: ${getErrorMessage(err)}`)
-    }
-  }, [loadAssets, scripts, sessionId])
+  /** 确认衔接方式后，按续写意图挂上原片素材 */
+  const handleConfirmContinue = useCallback(async () => {
+    if (!continueTask) return
+    const attached = await attachVideoReference(continueTask, {
+      name: '已生成视频（续写起点）',
+      continuationMode: continueDraftMode,
+    })
+    if (attached) setContinueTask(null)
+  }, [attachVideoReference, continueDraftMode, continueTask])
 
   function handleClearGeneration() {
     setGenerationScriptId(undefined)
@@ -889,20 +998,35 @@ export default function VideoStoryboard() {
   async function handleSubmitGeneration() {
     if (!generationScript || generating || hasUploading) return
 
+    const assets = images.map((image) => ({
+      type: image.mediaType.startsWith('video/') ? 'video' as const : 'image' as const,
+      url: image.url,
+      name: image.name,
+    }))
+    const useSegmented = shouldUseSegmentedGeneration(generationScript, MAX_SEGMENT_DURATION_SEC)
+
     setGenerating(true)
     try {
-      const task = await generateVideo({
-        script_id: generationScript.id,
-        session_id: sessionId,
-        user_prompt: prompt.trim() || undefined,
-        assets: images.map((image) => ({
-          type: image.mediaType.startsWith('video/') ? 'video' : 'image',
-          url: image.url,
-          name: image.name,
-        })),
-      })
-      setVideos((prev) => [task, ...prev])
-      antdMessage.success('视频生成任务已提交')
+      if (useSegmented) {
+        const plan = await startSegmented({
+          script_id: generationScript.id,
+          session_id: sessionId,
+          user_prompt: prompt.trim() || undefined,
+          assets,
+        })
+        antdMessage.success(
+          `脚本时长 ${plan.targetDuration} 秒，已拆成 ${plan.totalSegments} 段，第 1 段正在生成`,
+        )
+      } else {
+        const task = await generateVideo({
+          script_id: generationScript.id,
+          session_id: sessionId,
+          user_prompt: prompt.trim() || undefined,
+          assets,
+        })
+        setVideos((prev) => [task, ...prev])
+        antdMessage.success('视频生成任务已提交')
+      }
       setGenerationScriptId(undefined)
       setPrompt('')
       setImages([])
@@ -1156,11 +1280,23 @@ export default function VideoStoryboard() {
                       generating={generating}
                       videos={videos}
                       onReferenceVideo={handleReferenceVideo}
+                      onContinueVideo={handleContinueVideo}
                       focusedVideoTaskId={focusedVideoTaskId}
                     />
                   </div>
                 )
               })}
+
+              {generationPlan && (
+                <SegmentPlanPanel
+                  plan={generationPlan}
+                  pending={planPending}
+                  onConfirmNext={handleConfirmNextSegment}
+                  onRegenerate={handleRegenerateSegment}
+                  onCancel={handleCancelPlan}
+                  onDismiss={dismissPlan}
+                />
+              )}
 
               <div ref={messagesEndRef} />
             </div>
@@ -1172,7 +1308,9 @@ export default function VideoStoryboard() {
                   <div className="lj-reference-bar">
                     <span>
                       {referencedVideoAsset
-                        ? `正在修改视频 · ${referencedVideoAsset.parsedContent?.durationSec || '未知'} 秒 · 基于 ${referencedScript.title} V${referencedScript.version}`
+                        ? continuationMode
+                          ? `正在续写视频 · 原片 ${referencedVideoAsset.parsedContent?.durationSec || '未知'} 秒 · 衔接方式：${continuationMode === 'frame_bridge' ? '尾帧作首帧' : '延长上一段'} · 基于 ${referencedScript.title} V${referencedScript.version}`
+                          : `正在修改视频 · ${referencedVideoAsset.parsedContent?.durationSec || '未知'} 秒 · 基于 ${referencedScript.title} V${referencedScript.version}`
                         : `已引用 · ${referencedScript.title} V${referencedScript.version}`}
                     </span>
                     <button
@@ -1190,7 +1328,9 @@ export default function VideoStoryboard() {
                   <div className="lj-generation-context">
                     <div className="lj-generation-context__script">
                       <VideoCameraOutlined />
-                      <span className="lj-generation-context__label">准备生成</span>
+                      <span className="lj-generation-context__label">
+                        {segmentedGeneration ? '分段生成' : '准备生成'}
+                      </span>
                       <span className="lj-generation-context__title">
                         {generationScript.title} · V{generationScript.version}
                       </span>
@@ -1338,7 +1478,11 @@ export default function VideoStoryboard() {
                           onClick={handleSend}
                           disabled={generationScript ? hasUploading || generating : !canSend}
                         >
-                          {generationScript ? '立即生成' : '发送'}
+                          {generationScript
+                            ? segmentedGeneration
+                              ? '开始分段生成'
+                              : '立即生成'
+                            : '发送'}
                         </Button>
                       )}
                     </div>
@@ -1365,6 +1509,29 @@ export default function VideoStoryboard() {
                 </div>
               )}
             </div>
+
+            <Modal
+              title="基于此视频续写"
+              open={Boolean(continueTask)}
+              onCancel={() => setContinueTask(null)}
+              onOk={handleConfirmContinue}
+              okText="开始续写"
+              cancelText="取消"
+              width={480}
+              className="lj-continue-modal"
+              destroyOnClose
+            >
+              <p>
+                续写会保留原片的世界观、人物与画风，新脚本与原片结尾衔接。请选择首段与原片的衔接方式：
+              </p>
+              <Radio.Group
+                value={continueDraftMode}
+                onChange={(event) => setContinueDraftMode(event.target.value as VideoContinuityMode)}
+              >
+                <Radio value="extend">延长上一段（推荐）</Radio>
+                <Radio value="frame_bridge">尾帧作首帧</Radio>
+              </Radio.Group>
+            </Modal>
 
             <Modal
               title="添加素材"
