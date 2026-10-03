@@ -14,12 +14,68 @@
     background: #f6f7fc
 }
 
+/* ---------- 背景光斑装饰 ---------- */
+.auth-preview-bg {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.auth-blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(60px);
+    opacity: .55;
+    animation: auth-float 16s ease-in-out infinite;
+}
+
+.auth-blob--1 {
+    width: 340px;
+    height: 340px;
+    top: -80px;
+    left: -100px;
+    background: radial-gradient(circle, #7b6cf6 0%, transparent 70%);
+    animation-duration: 18s;
+}
+
+.auth-blob--2 {
+    width: 260px;
+    height: 260px;
+    bottom: 120px;
+    left: 40%;
+    background: radial-gradient(circle, #a8c0ff 0%, transparent 70%);
+    animation-delay: -6s;
+    animation-duration: 22s;
+}
+
+.auth-blob--3 {
+    width: 200px;
+    height: 200px;
+    top: 45%;
+    right: -40px;
+    background: radial-gradient(circle, #fcd3a5 0%, transparent 70%);
+    animation-delay: -10s;
+    animation-duration: 14s;
+}
+
+@keyframes auth-float {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(30px, -20px) scale(1.08); }
+    66% { transform: translate(-20px, 15px) scale(.95); }
+}
+
+/* ---------- 品牌区域 ---------- */
 .auth-brand {
+    position: relative;
+    z-index: 1;
     display: flex;
     align-items: center;
     gap: 10px;
     font-size: 19px;
-    font-weight: 800
+    font-weight: 800;
+    animation: auth-fade-down .7s ease-out both
 }
 
 .auth-brand-mark {
@@ -32,9 +88,13 @@
     background-size: cover;
 }
 
+/* ---------- 文案区域 ---------- */
 .auth-preview-copy {
+    position: relative;
+    z-index: 1;
     margin-top: 150px;
-    max-width: 330px
+    max-width: 330px;
+    animation: auth-fade-up .8s ease-out .15s both
 }
 
 .auth-preview-copy h1 {
@@ -50,41 +110,181 @@
     line-height: 1.7
 }
 
+@keyframes auth-fade-down {
+    from { opacity: 0; transform: translateY(-12px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes auth-fade-up {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------- Workspace 动态预览卡片 ---------- */
 .auth-workspace-preview {
     position: absolute;
     right: -18px;
     bottom: 48px;
-    width: 310px;
-    padding: 16px;
+    width: 320px;
+    padding: 18px 18px 14px;
     border: 1px solid #e1e5ef;
-    border-radius: 8px;
-    background: #fff;
-    box-shadow: 0 14px 30px rgba(39, 50, 76, .1);
-    font-size: 12px
+    border-radius: 12px;
+    background: rgba(255, 255, 255, .88);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow: 0 14px 30px rgba(39, 50, 76, .1), 0 2px 8px rgba(39, 50, 76, .05);
+    font-size: 12px;
+    z-index: 1;
+    animation: auth-fade-up .8s ease-out .35s both, auth-float-card 6s ease-in-out .8s infinite;
 }
 
-.auth-preview-row {
-    display: grid;
-    grid-template-columns: 58px 1fr 1fr;
-    gap: 8px;
+.auth-workspace-preview > header {
+    display: flex;
     align-items: center;
-    margin-top: 14px;
-    padding-top: 12px;
-    border-top: 1px solid #edf0f5
+    gap: 8px;
+    margin-bottom: 12px;
+    color: #263249;
+    font-size: 13px;
+    font-weight: 600;
 }
 
-.auth-preview-row span {
-    height: 38px;
-    border-radius: 4px;
-    background: #efdfd7
+.auth-ws-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #52c41a;
+    box-shadow: 0 0 0 0 rgba(82, 196, 26, .5);
+    animation: auth-pulse-dot 2s ease-out infinite;
 }
 
-.auth-preview-row i {
-    height: 7px;
+@keyframes auth-pulse-dot {
+    0%   { box-shadow: 0 0 0 0 rgba(82, 196, 26, .45); }
+    70%  { box-shadow: 0 0 0 6px rgba(82, 196, 26, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(82, 196, 26, 0); }
+}
+
+.auth-ws-progress {
+    height: 4px;
     border-radius: 2px;
-    background: #e8ebf3
+    background: #e8ebf3;
+    overflow: hidden;
+    margin-bottom: 14px;
 }
 
+.auth-ws-progress > i {
+    display: block;
+    height: 100%;
+    border-radius: 2px;
+    background: linear-gradient(90deg, #7b6cf6, #5145e9);
+    transition: width .12s linear;
+}
+
+.auth-ws-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.auth-ws-list > li {
+    display: grid;
+    grid-template-columns: 44px 1fr;
+    gap: 10px;
+    align-items: center;
+    padding: 10px 0;
+    border-top: 1px solid #edf0f5;
+    opacity: 0;
+    animation: auth-item-in .4s ease-out forwards;
+}
+
+.auth-ws-list > li:first-child {
+    border-top: none;
+}
+
+@keyframes auth-item-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.auth-ws-thumb {
+    width: 44px;
+    height: 44px;
+    border-radius: 6px;
+    background: linear-gradient(135deg, #ffd8a8, #ffc3a0);
+    position: relative;
+    overflow: hidden;
+}
+
+.auth-ws-thumb::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent);
+    transform: translateX(-100%);
+    animation: auth-shimmer 2.6s ease-in-out infinite;
+}
+
+.auth-ws-list > li[data-stage="generating"] .auth-ws-thumb {
+    background: linear-gradient(135deg, #d6c8ff, #b8a5ff);
+}
+
+.auth-ws-list > li[data-stage="queued"] .auth-ws-thumb {
+    background: linear-gradient(135deg, #eef0f5, #dfe3ed);
+}
+
+.auth-ws-list > li[data-stage="done"] .auth-ws-thumb::after,
+.auth-ws-list > li[data-stage="queued"] .auth-ws-thumb::after {
+    animation: none;
+    transform: none;
+    background: none;
+}
+
+@keyframes auth-shimmer {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+.auth-ws-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.auth-ws-meta > span {
+    color: #263249;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.auth-ws-meta > em {
+    font-style: normal;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.auth-ws-meta > em[data-status="done"] {
+    color: #52c41a;
+}
+
+.auth-ws-meta > em[data-status="generating"] {
+    color: #5145e9;
+    animation: auth-blink 1.4s ease-in-out infinite;
+}
+
+.auth-ws-meta > em[data-status="queued"] {
+    color: #8994a7;
+}
+
+@keyframes auth-blink {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: .45; }
+}
+
+@keyframes auth-float-card {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-6px); }
+}
+
+/* ---------- 表单区域 ---------- */
 .auth-form-panel {
     display: flex;
     align-items: center;
@@ -166,6 +366,12 @@
     color: inherit
 }
 
+/* ---------- 旧 workspace 样式（保留兼容，不再使用） ---------- */
+.auth-preview-row {
+    display: none;
+}
+
+/* ---------- 响应式 ---------- */
 @media(max-width:760px) {
     .auth-page {
         display: block
@@ -178,5 +384,19 @@
     .auth-form-panel {
         min-height: 100svh;
         padding: 24px
+    }
+}
+
+/* ---------- 减少动效偏好 ---------- */
+@media (prefers-reduced-motion: reduce) {
+    .auth-blob,
+    .auth-brand,
+    .auth-preview-copy,
+    .auth-workspace-preview,
+    .auth-ws-list > li,
+    .auth-ws-dot,
+    .auth-ws-thumb::after,
+    .auth-ws-meta > em[data-status="generating"] {
+        animation: none !important;
     }
 }
