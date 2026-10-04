@@ -4,6 +4,7 @@ import {
   CheckCircleFilled,
   ClockCircleOutlined,
   CloseOutlined,
+  DownOutlined,
   ExclamationCircleOutlined,
   LoadingOutlined,
   PlayCircleOutlined,
@@ -25,7 +26,6 @@ interface SegmentPlanPanelProps {
   onConfirmNext: (mode: VideoContinuityMode) => void
   onRegenerate: (segmentIndex: number, mode: VideoContinuityMode) => void
   onCancel: () => void
-  onDismiss: () => void
 }
 
 type SegmentState = 'done' | 'active' | 'failed' | 'pending'
@@ -86,9 +86,10 @@ export function SegmentPlanPanel({
   onConfirmNext,
   onRegenerate,
   onCancel,
-  onDismiss,
 }: SegmentPlanPanelProps) {
   const [mode, setMode] = useState<VideoContinuityMode>('extend')
+  // 收起只是折叠面板本身，计划仍完整保留（数据来自计划接口，与消息表无关）
+  const [collapsed, setCollapsed] = useState(false)
 
   const awaitingConfirm = plan.status === 'awaiting_confirm'
   // 后端 assertPlanActive 会拒绝已取消/已完成计划的开始下一段与重抽，前端同步禁用
@@ -102,7 +103,7 @@ export function SegmentPlanPanel({
     : 0
 
   return (
-    <section className={`lj-segplan lj-segplan--${plan.status}`}>
+    <section className={`lj-segplan lj-segplan--${plan.status}${collapsed ? ' is-collapsed' : ''}`}>
       <header className="lj-segplan__head">
         <div className="lj-segplan__heading">
           <span className="lj-segplan__badge"><ScissorOutlined /> 分段生成</span>
@@ -123,8 +124,15 @@ export function SegmentPlanPanel({
               />
             </Tooltip>
           )}
-          <Tooltip title="收起面板（计划仍保留在会话中）">
-            <Button type="text" size="small" icon={<UpOutlined />} onClick={onDismiss} />
+          <Tooltip title={collapsed ? '展开面板' : '收起面板'}>
+            <Button
+              type="text"
+              size="small"
+              icon={collapsed ? <DownOutlined /> : <UpOutlined />}
+              onClick={() => setCollapsed((prev) => !prev)}
+              aria-expanded={!collapsed}
+              aria-label={collapsed ? '展开分段生成面板' : '收起分段生成面板'}
+            />
           </Tooltip>
         </div>
       </header>

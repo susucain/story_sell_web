@@ -13,6 +13,11 @@
   box-shadow: var(--lj-shadow-md);
 }
 
+/* 收起：只留头部，同按钮再点即展开 */
+.lj-segplan.is-collapsed > :not(.lj-segplan__head) {
+  display: none;
+}
+
 .lj-segplan__head {
   display: flex;
   align-items: center;

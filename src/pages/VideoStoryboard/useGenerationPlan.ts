@@ -38,7 +38,6 @@ export function useGenerationPlan(
   const [plan, setPlan] = useState<VideoGenerationPlan | null>(null)
   const [pending, setPending] = useState(false)
   const [trackedSessionId, setTrackedSessionId] = useState(sessionId)
-  const dismissedPlanIdRef = useRef<number | null>(null)
   const onSettledRef = useRef(onSettled)
 
   useEffect(() => {
@@ -66,9 +65,10 @@ export function useGenerationPlan(
       .filter((id): id is number => typeof id === 'number')
     if (planIds.length === 0) return
     const candidate = Math.max(...planIds)
-    if (candidate === dismissedPlanIdRef.current) return
-    loadPlan(candidate).catch((error) => reportError('video.plan.restore', error))
-  }, [plan, videos, sessionId, loadPlan])
+    fetchGenerationPlan(candidate)
+      .then(setPlan)
+      .catch((error) => reportError('video.plan.restore', error))
+  }, [plan, videos, sessionId])
 
   const activeTaskIds = useMemo(
     () =>
@@ -117,7 +117,6 @@ export function useGenerationPlan(
     setPending(true)
     try {
       const data = await createSegmentedVideo(body)
-      dismissedPlanIdRef.current = null
       setPlan(data)
       return data
     } finally {
@@ -161,10 +160,5 @@ export function useGenerationPlan(
     }
   }, [plan])
 
-  const dismiss = useCallback(() => {
-    dismissedPlanIdRef.current = plan?.planId ?? dismissedPlanIdRef.current
-    setPlan(null)
-  }, [plan])
-
-  return { plan, pending, startSegmented, confirmNext, regenerate, cancel, dismiss }
+  return { plan, pending, startSegmented, confirmNext, regenerate, cancel }
 }

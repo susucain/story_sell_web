@@ -552,7 +552,6 @@ export default function VideoStoryboard() {
     confirmNext: confirmNextSegment,
     regenerate: regeneratePlanSegment,
     cancel: cancelPlan,
-    dismiss: dismissPlan,
   } = useGenerationPlan(sessionId, {
     videos,
     onSettled: handlePlanSettled,
@@ -1435,12 +1434,12 @@ export default function VideoStoryboard() {
 
               {generationPlan && (
                 <SegmentPlanPanel
+                  key={generationPlan.planId}
                   plan={generationPlan}
                   pending={planPending}
                   onConfirmNext={handleConfirmNextSegment}
                   onRegenerate={handleRegenerateSegment}
                   onCancel={handleCancelPlan}
-                  onDismiss={dismissPlan}
                 />
               )}
 
