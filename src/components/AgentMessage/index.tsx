@@ -1,4 +1,4 @@
-import { memo, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import {
   getToolName,
   isToolUIPart,
@@ -25,9 +25,13 @@ import { VideoMessagePreview } from '../../pages/VideoStoryboard/VideoMessagePre
 import type { ScriptVersion, AssetItem, VideoTaskItem } from '../../pages/VideoStoryboard/types'
 import { toParsedStoryboard } from '../../pages/VideoStoryboard/types'
 import type { ProcessPhase, ProcessState, ProcessStatePart } from './process-types'
+import {
+  collectPhaseRationales,
+  splitAssistantParts,
+  type AnyToolPart,
+  type PhaseRationale,
+} from './assistant-parts'
 import './style.css'
-
-type AnyToolPart = Extract<UIMessage['parts'][number], { type: `tool-${string}` } | { type: 'dynamic-tool' }>
 
 /** 工具名 → 友好展示名 */
 const FRIENDLY_TOOL_NAMES: Record<string, string> = {
@@ -193,12 +197,12 @@ function CollapsibleToolSteps({ children, total, label }: { children: React.Reac
   )
 }
 
-function useProcessState(parts: UIMessage['parts']): ProcessState | null {
+function readProcessState(parts: UIMessage['parts']): ProcessState | null {
   const statePart = [...parts]
     .reverse()
     .find((p: any) => p.type === 'data-process-state') as ProcessStatePart | undefined
   if (!statePart) return null
-  if (statePart.data.status === 'skipped') return null
+  if (statePart.data.status === 'skipped' || statePart.data.phases.length === 0) return null
   return statePart.data
 }
 
@@ -235,11 +239,30 @@ function AlertIcon({ className }: { className?: string }) {
   )
 }
 
-/** 创作过程面板：按设计稿渲染三阶段时间线 */
-function ProcessPanel({ parts, isStreaming }: { parts: UIMessage['parts']; isStreaming?: boolean }) {
-  const [expanded, setExpanded] = useState(true)
-  const state = useProcessState(parts)
-  if (!state || state.phases.length === 0) return null
+/** 创作过程面板：按设计稿渲染三阶段时间线；过程旁白并入所属阶段，本轮结束后自动收起为一行摘要 */
+function ProcessPanel({
+  state,
+  isStreaming,
+  rationales,
+}: {
+  state: ProcessState
+  isStreaming?: boolean
+  rationales: PhaseRationale[]
+}) {
+  const isRunning = state.status === 'running' || Boolean(isStreaming)
+  const isWaitingForUser = state.status === 'waiting_for_user'
+  // 等待用户确认时保持展开，便于看到当前进度与待办
+  const isActive = isRunning || isWaitingForUser
+  // 进行中展开展示进度，本轮结束后自动收起成一行摘要；
+  // 用户手动开合过则尊重其选择，不再自动收起。
+  const [expanded, setExpanded] = useState(isActive)
+  const [manuallyToggled, setManuallyToggled] = useState(false)
+  const wasActive = useRef(isActive)
+
+  useEffect(() => {
+    if (wasActive.current && !isActive && !manuallyToggled) setExpanded(false)
+    wasActive.current = isActive
+  }, [isActive, manuallyToggled])
 
   const completedPhases = state.phases.filter((p) => p.status === 'completed').length
   const operationCount = state.phases.reduce((sum, phase) => {
@@ -251,8 +274,18 @@ function ProcessPanel({ parts, isStreaming }: { parts: UIMessage['parts']; isStr
     )
   }, 0)
 
-  const isRunning = state.status === 'running' || isStreaming
-  const isWaitingForUser = state.status === 'waiting_for_user'
+  const summary = `${state.phases.length} 个阶段 · 共 ${operationCount} 项操作`
+
+  // 旁白按归属阶段分组；定位不到阶段的（首个快照之前的文本）兜底归到最后阶段
+  const rationalesByPhase = new Map<string, PhaseRationale[]>()
+  const fallbackPhaseId = state.phases[state.phases.length - 1]?.id
+  rationales.forEach((item) => {
+    const phaseId = item.phaseId ?? fallbackPhaseId
+    if (!phaseId) return
+    const list = rationalesByPhase.get(phaseId) ?? []
+    list.push(item)
+    rationalesByPhase.set(phaseId, list)
+  })
 
   return (
     <div className="process-panel">
@@ -260,10 +293,10 @@ function ProcessPanel({ parts, isStreaming }: { parts: UIMessage['parts']; isStr
         <div className="process-header__left">
           <div className="process-icon">⚡</div>
           <div>
-            <div className="process-title">本次创作过程</div>
-            <div className="process-meta">
-              {state.phases.length} 个阶段 · 共 {operationCount} 项操作
+            <div className="process-title">
+              {expanded ? '本次创作过程' : `本次创作过程 · ${summary}`}
             </div>
+            {expanded && <div className="process-meta">{summary}</div>}
           </div>
         </div>
         <div className="process-header__right">
@@ -280,7 +313,14 @@ function ProcessPanel({ parts, isStreaming }: { parts: UIMessage['parts']; isStr
               </>
             )}
           </span>
-          <button type="button" className="toggle-btn" onClick={() => setExpanded(!expanded)}>
+          <button
+            type="button"
+            className="toggle-btn"
+            onClick={() => {
+              setManuallyToggled(true)
+              setExpanded(!expanded)
+            }}
+          >
             {expanded ? '收起 ▲' : '展开 ▼'}
           </button>
         </div>
@@ -290,7 +330,13 @@ function ProcessPanel({ parts, isStreaming }: { parts: UIMessage['parts']; isStr
         <div className="process-body">
           <div className="steps">
             {state.phases.map((phase, index) => (
-              <ProcessPhaseView key={phase.id} phase={phase} index={index + 1} isRunning={isRunning} />
+              <ProcessPhaseView
+                key={phase.id}
+                phase={phase}
+                index={index + 1}
+                isRunning={isRunning}
+                rationales={rationalesByPhase.get(phase.id) ?? []}
+              />
             ))}
             <TimelineProgress completed={completedPhases} total={state.phases.length} />
           </div>
@@ -315,10 +361,12 @@ function ProcessPhaseView({
   phase,
   index,
   isRunning,
+  rationales,
 }: {
   phase: ProcessPhase
   index: number
   isRunning: boolean
+  rationales: PhaseRationale[]
 }) {
   const done = phase.status === 'completed'
   const running = phase.status === 'running'
@@ -357,6 +405,16 @@ function ProcessPhaseView({
                     : '等待中'}
           </span>
         </div>
+
+        {rationales.length > 0 && (
+          <div className="step-rationales">
+            {rationales.map((item, i) => (
+              <div className="step-rationale" key={`${item.phaseId ?? 'none'}-${i}`}>
+                {item.text}
+              </div>
+            ))}
+          </div>
+        )}
 
         {phase.items && phase.items.length > 0 && (
           <div className="step-children">
@@ -444,7 +502,10 @@ function GeneratePhaseBody({ phase, isRunning }: { phase: ProcessPhase; isRunnin
                 <FileIcon className="child-icon pending" />
               )}
               <div className="child-body">
-                <span className="child-title">{action.title}</span>
+                <span className="child-title">
+                  {action.title}
+                  {action.tag && <span className={`child-tag ${action.tag.type}`}>{action.tag.text}</span>}
+                </span>
                 {action.description && <div className="child-sub">{action.description}</div>}
               </div>
             </div>
@@ -476,100 +537,6 @@ function GeneratePhaseBody({ phase, isRunning }: { phase: ProcessPhase; isRunnin
       )}
     </div>
   )
-}
-
-/**
- * 拆分 assistant 消息的 parts：
- * - mainToolParts：主 agent 的工具调用（按出现顺序）
- * - subAgentSections：子 agent 的工具调用分组（每个 task 工具调用对应一个子 agent section）
- * - finalTextParts：主 agent 的最终文本输出（排除子 agent 的文本）
- * - reasoningParts：思考过程
- *
- * 子 agent 的工具调用通过 task 工具调用来识别：
- * - task 工具调用标志着子 agent 的开始
- * - task 之后的非 task 工具调用属于该子 agent
- * - 下一个 task 工具调用或主 agent 工具调用标志着子 agent 的结束
- */
-function splitAssistantParts(parts: UIMessage['parts']) {
-  const mainToolParts: AnyToolPart[] = []
-  const reasoningParts: { type: string; text: string }[] = []
-  const subAgentSections: { taskPart: AnyToolPart; toolParts: AnyToolPart[] }[] = []
-
-  let currentSubAgent: { taskPart: AnyToolPart; toolParts: AnyToolPart[] } | null = null
-
-  parts.forEach((part) => {
-    if (isToolUIPart(part as any)) {
-      const toolPart = part as AnyToolPart
-      const name = getToolName(toolPart as any)
-
-      if (name === 'task') {
-        // 保存之前的子 agent section（如果有）
-        if (currentSubAgent) {
-          subAgentSections.push(currentSubAgent)
-        }
-        // 开始新的子 agent section
-        currentSubAgent = { taskPart: toolPart, toolParts: [] }
-      } else if (currentSubAgent) {
-        // 非 task 工具调用，如果当前在子 agent 中，则归入子 agent
-        currentSubAgent.toolParts.push(toolPart)
-      } else {
-        // 主 agent 的工具调用
-        mainToolParts.push(toolPart)
-      }
-    }
-
-    if (part.type === 'reasoning' && 'text' in part) {
-      reasoningParts.push({ type: 'reasoning', text: (part as any).text })
-    }
-  })
-
-  // 保存最后一个子 agent section（如果有）
-  if (currentSubAgent) {
-    subAgentSections.push(currentSubAgent)
-  }
-
-  // 主 agent 的最终文本：排除子 agent 的文本
-  // 子 agent 的文本出现在 task 工具调用之后，下一个主 agent 工具调用或消息结束之前
-  const finalTextParts: UIMessage['parts'] = []
-  let inSubAgent = false
-  let lastToolIdx = -1
-
-  // 找到最后一个主 agent 工具调用的索引
-  parts.forEach((part, idx) => {
-    if (isToolUIPart(part as any)) {
-      const name = getToolName(part as any)
-      if (name !== 'task' && !inSubAgent) {
-        lastToolIdx = idx
-      }
-    }
-  })
-
-  parts.forEach((part, idx) => {
-    if (part.type !== 'text') return
-
-    // 检查是否在子 agent 范围内
-    if (parts[idx - 1] && isToolUIPart(parts[idx - 1] as any)) {
-      const prevName = getToolName(parts[idx - 1] as any)
-      if (prevName === 'task') {
-        inSubAgent = true
-      }
-    }
-
-    // 如果遇到主 agent 的工具调用，退出子 agent 范围
-    if (parts[idx + 1] && isToolUIPart(parts[idx + 1] as any)) {
-      const nextName = getToolName(parts[idx + 1] as any)
-      if (nextName !== 'task') {
-        inSubAgent = false
-      }
-    }
-
-    // 只收集主 agent 的最终文本
-    if (!inSubAgent && (lastToolIdx === -1 || idx > lastToolIdx)) {
-      finalTextParts.push(part)
-    }
-  })
-
-  return { mainToolParts, subAgentSections, finalTextParts, reasoningParts }
 }
 
 interface VideoGenerationMetadata {
@@ -693,8 +660,6 @@ export interface AgentMessageProps {
   scripts?: ScriptVersion[]
   /** 当前会话素材，传递给 ScriptCard 显示关联素材 */
   assets?: AssetItem[]
-  /** 是否为当前会话最后一条可见的 assistant 消息；只有这条消息才渲染创作过程条 */
-  isLatestAssistant?: boolean
   /** 引用脚本 */
   onQuoteScript?: (script: ScriptVersion) => void
   /** 使用脚本生成视频 */
@@ -718,7 +683,6 @@ export const AgentMessage = memo(function AgentMessage({
   script: explicitScript,
   scripts = [],
   assets = [],
-  isLatestAssistant = false,
   onQuoteScript,
   onGenerateVideo,
   generating = false,
@@ -786,8 +750,8 @@ export const AgentMessage = memo(function AgentMessage({
   }
 
   // assistant 角色
-  const { mainToolParts, subAgentSections, finalTextParts } = splitAssistantParts(message.parts)
-  const lastTextIdx = finalTextParts.length - 1
+  const { mainToolParts, subAgentSections, textParts } = splitAssistantParts(message.parts)
+  const lastTextIdx = textParts.length - 1
 
   // 优先使用外部传入的 script；否则从消息 metadata 或 tool-call 输出中解析 script_id
   const generatedScriptId =
@@ -808,12 +772,20 @@ export const AgentMessage = memo(function AgentMessage({
       ? scripts.find((s) => s.id === generatedScriptId) ?? null
       : null
 
-  // 过滤掉仅包含 data-process-* / step-start 等无可见内容的 assistant 占位消息
+  // 过程条：本条消息自带的过程状态（流式期间写入的快照只存在于内存，历史消息没有）
+  const processState = readProcessState(message.parts)
+  // 过程旁白按阶段归位，作为过程条里的思考片段展示
+  const rationales = collectPhaseRationales(message.parts, textParts)
+
+  // 过滤掉仅包含 data-process-* / step-start 等无可见内容的 assistant 占位消息。
+  // 注意：过程面板本身就算可见内容——刷新后的恢复消息只带 data-process-state，
+  // 工具调用与正文都还没到，若不算可见就会被整条丢弃，过程条要等到正文出现才显示。
   const hasVisibleContent =
     mainToolParts.length > 0 ||
     subAgentSections.length > 0 ||
-    finalTextParts.some((p) => p.type === 'text' && (p as any).text?.trim().length > 0) ||
-    embeddedScript != null
+    textParts.some((item) => item.part.text?.trim().length > 0) ||
+    embeddedScript != null ||
+    processState != null
 
   if (!hasVisibleContent) {
     return null
@@ -825,26 +797,39 @@ export const AgentMessage = memo(function AgentMessage({
         <div className="storyboard-avatar storyboard-avatar--assistant"></div>
         <div className="storyboard-bubble storyboard-bubble--assistant">
           <div className="storyboard-content">
-            {/* 创作过程面板：只在最后一条可见 assistant 消息中展示一次 */}
-            {isLatestAssistant && <ProcessPanel parts={message.parts} isStreaming={isStreaming} />}
+            {/* 创作过程面板：过程旁白并入所属阶段，本轮结束后自动收起为一行摘要 */}
+            {processState && (
+              // 流式期间旁白就地展示，条内不再重复；本轮结束后旁白才转入过程条
+              <ProcessPanel
+                state={processState}
+                isStreaming={isStreaming}
+                rationales={isStreaming ? [] : rationales}
+              />
+            )}
 
-            {/* 最终文本（仅主 agent） */}
-            {finalTextParts.map((part, i) => {
-              if (part.type !== 'text') return null
-              // 非流式时尝试自定义渲染（如分镜脚本卡片）
-              if (!isStreaming && renderFinalText) {
-                const custom = renderFinalText(part.text)
+            {/* 文本输出：按后端下发的 step 角色就地渲染 */}
+            {textParts.map((item, i) => {
+              const isInterstitial = item.role === 'interstitial'
+              // 过程旁白：角色元数据晚于文本到达，流式期间先就地弱化展示，避免「出现又消失」；
+              // 本轮结束后再撤走，改由过程条的思考片段展示
+              if (isInterstitial && processState && !isStreaming) return null
+              // 非流式时对最终答复尝试自定义渲染（如分镜脚本卡片）
+              if (!isInterstitial && !isStreaming && renderFinalText) {
+                const custom = renderFinalText(item.part.text)
                 if (custom !== null && custom !== undefined) {
                   return <div key={i} className="storyboard-custom-render">{custom}</div>
                 }
               }
               return (
-                <div key={i} className="storyboard-text">
+                <div
+                  key={i}
+                  className={isInterstitial ? 'storyboard-text storyboard-text--interstitial' : 'storyboard-text'}
+                >
                   <StreamdownText
-                    isStreaming={isStreaming && i === lastTextIdx}
+                    isStreaming={isStreaming && i === lastTextIdx && !isInterstitial}
                     unwrapMarkdownFences
                   >
-                    {part.text}
+                    {item.part.text}
                   </StreamdownText>
                 </div>
               )
@@ -879,7 +864,6 @@ export const AgentMessage = memo(function AgentMessage({
   if (prev.videos !== next.videos) return false
   if (prev.onReferenceVideo !== next.onReferenceVideo) return false
   if (prev.onContinueVideo !== next.onContinueVideo) return false
-  if (prev.isLatestAssistant !== next.isLatestAssistant) return false
   if (!next.isStreaming) return true
   return false
 })

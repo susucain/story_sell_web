@@ -23,6 +23,7 @@ export interface ProcessAction {
   title: string
   description?: string
   status: 'pending' | 'running' | 'waiting_for_user' | 'completed' | 'error'
+  tag?: { text: string; type: 'success' | 'info' }
 }
 
 export interface ProcessOutput {

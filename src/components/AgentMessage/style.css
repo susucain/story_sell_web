@@ -235,7 +235,7 @@
 
 /* ===== 内嵌脚本卡片（位于 assistant 消息气泡底部） ===== */
 .storyboard-embedded-card {
-  margin-top: 12px;
+  margin-top: 0;
   min-width: 0;
 }
 
@@ -260,11 +260,12 @@
   --pp-radius: 12px;
   --pp-radius-sm: 8px;
 
-  width: calc(100% - 42px);
-  align-self: flex-start;
+  width: 100%;
   background: var(--pp-bg);
+  border: 1px solid var(--lj-border-soft);
+  border-radius: var(--lj-radius-lg);
   overflow: hidden;
-  margin-bottom: 12px;
+  margin-bottom: 0;
   font-size: 13px;
   line-height: 1.6;
 }
@@ -277,6 +278,11 @@
   padding: 14px 18px;
   border-bottom: 1px solid var(--pp-border-soft);
   background: linear-gradient(135deg, #faf5ff 0%, #f5f3ff 100%);
+}
+
+/* 收起状态只留一行摘要，避免表头下边框与面板边框叠成双线 */
+.process-panel > .process-header:last-child {
+  border-bottom: none;
 }
 
 .process-header__left {
@@ -513,6 +519,26 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+/* ===== 过程旁白：归属到所在阶段的思考片段 ===== */
+.step-rationales {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.step-rationale {
+  padding: 8px 12px;
+  border-left: 3px solid var(--pp-border);
+  border-radius: 0 var(--pp-radius-sm) var(--pp-radius-sm) 0;
+  background: var(--pp-bg-soft);
+  color: var(--pp-text-secondary);
+  font-size: 12.5px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .child-item {
@@ -834,5 +860,19 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 4px;
+  }
+
+  /* 视频卡片底部按钮：窄屏改为竖排撑满，避免 flex-end 溢出裁掉左侧按钮 */
+  .video-generation-card__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .video-generation-card__actions > a {
+    display: block;
+  }
+
+  .video-generation-card__actions .ant-btn {
+    width: 100%;
   }
 }
