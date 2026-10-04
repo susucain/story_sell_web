@@ -38,7 +38,16 @@ import {
   generateVideo,
   fetchVideoTasksBySession,
   subscribeTaskStatus,
+  cancelChatRun,
+  fetchActiveRun,
+  subscribeRunEvents,
 } from './api'
+import {
+  applyRunEvent,
+  buildRecoveredMessage,
+  createRunRecoveryState,
+  type RunRecoveryState,
+} from './run-recovery'
 import { useGenerationPlan } from './useGenerationPlan'
 import { SegmentPlanPanel } from './SegmentPlanPanel'
 import { useSessionList } from './useSessionList'
@@ -67,6 +76,8 @@ import './style.css'
 
 const SESSION_PAGE_SIZE = 20
 const CHAT_UPDATE_THROTTLE_MS = 80
+/** 恢复视图的合成节流：每个事件都重建整条消息代价高，按帧合批 */
+const RECOVERY_UPDATE_THROTTLE_MS = 80
 /** 视频模型单次生成上限（秒），超过即走分段生成 */
 const MAX_SEGMENT_DURATION_SEC = 15
 
@@ -278,6 +289,14 @@ export default function VideoStoryboard() {
   const initialSessionResolvedRef = useRef(false)
   const [retryAvailable, setRetryAvailable] = useState(false)
   const [sessionValidated, setSessionValidated] = useState(false)
+  /** 有值时表示当前会话存在在途 run，正通过事件重放恢复「过程面板 + 正文」 */
+  const [recoveringRun, setRecoveringRun] = useState<{ runId: string; sessionId: string } | null>(null)
+  /** 恢复期间合成的 assistant 消息（独立于 useChat，落库后用历史替换） */
+  const [recoveryMessage, setRecoveryMessage] = useState<UIMessage | null>(null)
+  const recoveryStateRef = useRef<{ runId: string; sessionId: string; state: RunRecoveryState } | null>(null)
+  const recoveryUnsubRef = useRef<(() => void) | null>(null)
+  /** 恢复视图的合批定时器，避免每个事件都重建整条消息 */
+  const recoveryFlushRef = useRef<number | null>(null)
 
   // 会话 id 只在本次挂载的首个加载结果里解析一次。之后的任何刷新（新建会话、发消息后刷新、
   // 生成完成刷新）都不得改写当前会话：新建的会话还没入库，不在列表里，会被误判成过期缓存
@@ -418,6 +437,106 @@ export default function VideoStoryboard() {
       })
   }, [setMessages])
 
+  // ===== 在途 run 的恢复（刷新 / 切回会话）=====
+  /** 断开本地订阅并清空恢复视图；不触碰后端 run（取消只走「停止生成」） */
+  const stopRecovery = useCallback(() => {
+    recoveryUnsubRef.current?.()
+    recoveryUnsubRef.current = null
+    recoveryStateRef.current = null
+    if (recoveryFlushRef.current !== null) {
+      window.clearTimeout(recoveryFlushRef.current)
+      recoveryFlushRef.current = null
+    }
+    setRecoveringRun(null)
+    setRecoveryMessage(null)
+  }, [])
+
+  /** 订阅 run 事件：先重放已产生的事件，再尾随增量，边收边合成恢复消息 */
+  const startRecovery = useCallback((targetSessionId: string, runId: string) => {
+    recoveryUnsubRef.current?.()
+    if (recoveryFlushRef.current !== null) {
+      window.clearTimeout(recoveryFlushRef.current)
+      recoveryFlushRef.current = null
+    }
+    const state = createRunRecoveryState()
+    recoveryStateRef.current = { runId, sessionId: targetSessionId, state }
+    setRecoveringRun({ runId, sessionId: targetSessionId })
+    setRecoveryMessage(buildRecoveredMessage(runId, state))
+    void loadScripts()
+
+    // 事件逐个到达，而每次都要重建整条消息；按帧合批，避免逐事件重排把正文挤成一个字一个字往外冒
+    const scheduleRecoveryFlush = () => {
+      if (recoveryFlushRef.current !== null) return
+      recoveryFlushRef.current = window.setTimeout(() => {
+        recoveryFlushRef.current = null
+        const current = recoveryStateRef.current
+        if (!current || current.runId !== runId) return
+        setRecoveryMessage(buildRecoveredMessage(runId, current.state))
+      }, RECOVERY_UPDATE_THROTTLE_MS)
+    }
+
+    const close = subscribeRunEvents(runId, undefined, {
+      onEvent: (event) => {
+        const current = recoveryStateRef.current
+        if (!current || current.runId !== runId) return
+        applyRunEvent(current.state, event)
+        if (event.type === 'result') void loadScripts()
+        scheduleRecoveryFlush()
+      },
+      onEnd: () => {
+        if (recoveryStateRef.current?.runId !== runId) return
+        recoveryUnsubRef.current?.()
+        recoveryUnsubRef.current = null
+        if (recoveryFlushRef.current !== null) {
+          window.clearTimeout(recoveryFlushRef.current)
+          recoveryFlushRef.current = null
+        }
+        // 运行已结束：拉取落库后的历史与脚本，替换恢复用的合成消息，避免重复展示
+        loadSessions()
+        loadVideos()
+        loadScripts()
+        fetchHistory(targetSessionId)
+          .then((msgs) => {
+            if (recoveryStateRef.current?.runId !== runId) return
+            setMessages(msgs)
+            recoveryStateRef.current = null
+            setRecoveringRun(null)
+            setRecoveryMessage(null)
+          })
+          .catch((error) => {
+            reportError('video.history.refresh', error)
+            if (recoveryStateRef.current?.runId !== runId) return
+            recoveryStateRef.current = null
+            setRecoveringRun(null)
+            setRecoveryMessage(null)
+          })
+      },
+      onError: (error) => reportError(`video.run-events.${runId}`, error),
+    })
+    recoveryUnsubRef.current = close
+  }, [loadScripts, loadSessions, loadVideos, setMessages])
+
+  // 挂载 / 切换会话时查询在途 run；有则订阅重放，无则保持历史渲染
+  useEffect(() => {
+    if (!isSessionResourceLoadReady(sessionValidated)) return
+    const controller = new AbortController()
+    let disposed = false
+    const requestSessionId = sessionId
+    fetchActiveRun(requestSessionId, controller.signal)
+      .then(({ run }) => {
+        if (disposed || !run) return
+        startRecovery(requestSessionId, run.runId)
+      })
+      .catch((error) => {
+        if (!isAbortError(error)) reportError('video.active-run.load', error)
+      })
+    return () => {
+      disposed = true
+      controller.abort()
+      stopRecovery()
+    }
+  }, [sessionId, sessionValidated, startRecovery, stopRecovery])
+
   // ===== 长脚本分段生成 =====
   const handlePlanSettled = useCallback(() => {
     loadVideos()
@@ -472,7 +591,13 @@ export default function VideoStoryboard() {
   }, [status])
 
   function handleStop() {
+    // 显式通知后端中止本次 run（按 sessionId，单会话单链路），
+    // 后端 abort 后 SSE 自然收尾并将已生成内容兜底落库；stop() 同时断开本地流。
+    void cancelChatRun(sessionId).catch((err: unknown) => {
+      reportError(`video.chat-cancel.${sessionId}`, err)
+    })
     stop()
+    stopRecovery()
     setMessages((currentMessages) => removeStoppedAssistantTurn(currentMessages))
   }
 
@@ -548,10 +673,12 @@ export default function VideoStoryboard() {
     setMessages,
   ])
 
-  const busy = status === 'submitted' || status === 'streaming'
+  // 会话级占用：本会话流式进行中，或本会话存在正在恢复的在途 run
+  const busy = status === 'submitted' || status === 'streaming' || recoveringRun !== null
   const hasUploading = images.some((img) => img.uploading)
   const canSend = sessionValidated
     && status === 'ready'
+    && recoveringRun === null
     && !hasUploading
     && (prompt.trim().length > 0 || images.length > 0)
 
@@ -562,7 +689,7 @@ export default function VideoStoryboard() {
       })
     })
     return () => cancelAnimationFrame(animationFrame)
-  }, [messages, status])
+  }, [messages, recoveryMessage, status])
 
   // 仅在当前用户发送的对话完成后刷新，避免历史消息初始加载触发重复请求。
   useEffect(() => {
@@ -662,6 +789,12 @@ export default function VideoStoryboard() {
 
   function handleSwitchSession(newSessionId: string) {
     if (newSessionId === sessionId) return
+    // Phase 2 起切换会话是 detach 而非 cancel：只断开本地订阅，后端 run 继续执行，
+    // 切回时经 active-run + 事件重放恢复面板与正文。唯一的中止入口是「停止生成」。
+    if (statusRef.current === 'submitted' || statusRef.current === 'streaming') {
+      stop()
+    }
+    stopRecovery()
     localStorage.setItem(getSessionStorageKey(user.id), newSessionId)
     setSessionId(newSessionId)
     setSessionValidated(true)
@@ -1135,12 +1268,11 @@ export default function VideoStoryboard() {
     })
   }, [messages])
 
-  const lastAssistantIndex = useMemo(() => {
-    for (let i = visibleMessages.length - 1; i >= 0; i--) {
-      if (visibleMessages[i].role === 'assistant') return i
-    }
-    return -1
-  }, [visibleMessages])
+  // 把恢复期间合成的消息并入渲染序列（落库后由历史替换，不会重复）
+  const renderedMessages = useMemo(
+    () => (recoveryMessage ? [...visibleMessages, recoveryMessage] : visibleMessages),
+    [visibleMessages, recoveryMessage],
+  )
 
   const videoAgentErrorAction = useMemo(() => getVideoAgentErrorAction(error), [error])
 
@@ -1257,7 +1389,7 @@ export default function VideoStoryboard() {
                 </div>
               )}
 
-              {visibleMessages.map((msg, index) => {
+              {renderedMessages.map((msg, index) => {
                 const scriptId = getGeneratedScriptIdFromMessage(msg)
                 const matchedScript = scriptId
                   ? scripts.find((s) => s.id === scriptId) ?? null
@@ -1270,8 +1402,7 @@ export default function VideoStoryboard() {
                   >
                     <AgentMessage
                       message={msg}
-                      isStreaming={index === visibleMessages.length - 1 && busy}
-                      isLatestAssistant={index === lastAssistantIndex}
+                      isStreaming={index === renderedMessages.length - 1 && busy}
                       script={matchedScript}
                       scripts={scripts}
                       assets={assets}
@@ -1411,7 +1542,7 @@ export default function VideoStoryboard() {
                       : referencedVideoAsset
                         ? '描述要修改的时间范围和画面内容…'
                       : '补充修改方向，或上传达人、商品素材来生成视频…'}
-                    disabled={status !== 'ready' || generating}
+                    disabled={busy || generating}
                     onPaste={handlePaste}
                     onPressEnter={(e) => {
                       if (!e.shiftKey) {

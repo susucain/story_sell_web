@@ -535,21 +535,41 @@ html {
   letter-spacing: 0;
 }
 
+/* 消息正文区：过程条 / 过程旁白 / 最终答复 共用同一套卡片节奏（等宽 + 统一间距） */
+.lj-messages .storyboard-bubble--assistant .storyboard-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* 最终答复：白底卡片（强调级别最高） */
 .lj-messages .storyboard-bubble--assistant .storyboard-text {
   background: var(--lj-bg);
   border: 1px solid var(--lj-border-soft);
   border-radius: var(--lj-radius-lg);
-  padding: 14px 10px;
-}
-
-.lj-messages .storyboard-bubble--assistant .storyboard-content>div {
-  border-radius: var(--lj-radius) var(--lj-radius-lg) var(--lj-radius-lg) var(--lj-radius-lg);
+  padding: 14px 16px;
 }
 
 .lj-messages .storyboard-text {
   font-size: 14px;
   line-height: 1.7;
   color: var(--lj-text);
+}
+
+/* 过程旁白（工具调用前的说明文字）：与最终答复同一套卡片几何，仅弱化强调级别，
+   不删除也不搬运，避免流式期间「出现又消失」 */
+.lj-messages .storyboard-bubble--assistant .storyboard-text--interstitial {
+  background: var(--lj-bg-soft);
+  border: 1px solid var(--lj-border-soft);
+  border-left: 3px solid var(--lj-border);
+  border-radius: var(--lj-radius-lg);
+  padding: 12px 16px;
+}
+.lj-messages .storyboard-text--interstitial {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--lj-text-secondary);
 }
 
 .lj-messages .storyboard-image img {

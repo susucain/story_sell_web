@@ -20,6 +20,9 @@ vi.mock('./api', () => ({
   fetchVideoTasksBySession: vi.fn(async () => []),
   cancelVideoTask: vi.fn(),
   subscribeTaskStatus: vi.fn(() => () => {}),
+  cancelChatRun: vi.fn(async () => ({ cancelled: true })),
+  fetchActiveRun: vi.fn(async () => ({ run: null })),
+  subscribeRunEvents: vi.fn(() => () => {}),
 }))
 
 const USER = { account: 'creator', id: 7, status: 'active' }
