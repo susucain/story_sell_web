@@ -203,6 +203,7 @@ export function SegmentPlanPanel({
                   </Radio.Group>
                   <Button
                     type="primary"
+                    className="lj-btn-primary"
                     icon={<PlayCircleOutlined />}
                     loading={pending}
                     disabled={busy}
@@ -223,13 +224,19 @@ export function SegmentPlanPanel({
                       cancelText="取消"
                       onConfirm={() => onRegenerate(segment.index, task?.continuityMode ?? 'extend')}
                     >
-                      <Button size="small" icon={<ReloadOutlined />} disabled={busy}>
+                      <Button
+                        size="small"
+                        className="lj-btn-ghost"
+                        icon={<ReloadOutlined />}
+                        disabled={busy}
+                      >
                         重抽本段
                       </Button>
                     </Popconfirm>
                   ) : (
                     <Button
                       size="small"
+                      className="lj-btn-ghost"
                       icon={<ReloadOutlined />}
                       disabled={busy}
                       onClick={() => onRegenerate(segment.index, task?.continuityMode ?? 'extend')}

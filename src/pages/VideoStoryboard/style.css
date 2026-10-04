@@ -27,6 +27,12 @@ html {
   --lj-success: #10b981;
   --lj-warning: #f59e0b;
   --lj-danger: #ef4444;
+  --lj-success-bg: rgba(16, 185, 129, 0.12);
+  --lj-success-border: rgba(16, 185, 129, 0.3);
+  --lj-warning-bg: rgba(245, 158, 11, 0.12);
+  --lj-warning-border: rgba(245, 158, 11, 0.3);
+  --lj-danger-bg: rgba(239, 68, 68, 0.12);
+  --lj-danger-border: rgba(239, 68, 68, 0.3);
   --lj-radius: 10px;
   --lj-radius-sm: 6px;
   --lj-radius-md: 10px;

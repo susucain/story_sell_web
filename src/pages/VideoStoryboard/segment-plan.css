@@ -1,14 +1,16 @@
 /* ============================================
    分段生成计划面板
+   对齐设计规范：卡片描边/阴影沿用 --lj-border / --lj-shadow-md（同脚本卡片），
+   标签圆角统一 4px，状态色一律走语义 token，主次按钮使用 lj-btn-primary / lj-btn-ghost
    ============================================ */
 
 .lj-segplan {
   margin: 16px 0;
   padding: 16px;
-  border: 1px solid var(--lj-primary-border);
+  border: 1px solid var(--lj-border);
   border-radius: var(--lj-radius-lg);
   background: var(--lj-bg);
-  box-shadow: var(--lj-shadow);
+  box-shadow: var(--lj-shadow-md);
 }
 
 .lj-segplan__head {
@@ -29,11 +31,12 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 8px;
-  border-radius: 999px;
+  padding: 3px 10px;
+  border-radius: 4px;
   background: var(--lj-primary-bg);
   color: var(--lj-primary);
   font-size: 12px;
+  font-weight: 500;
   white-space: nowrap;
 }
 
@@ -53,27 +56,28 @@
 
 .lj-segplan__status {
   font-size: 12px;
+  font-weight: 500;
   color: var(--lj-text-secondary);
-  padding: 2px 8px;
-  border-radius: 999px;
+  padding: 3px 10px;
+  border-radius: 4px;
   background: var(--lj-bg-section);
   white-space: nowrap;
 }
 
 .lj-segplan__status--awaiting_confirm {
   color: var(--lj-warning);
-  background: rgba(245, 158, 11, 0.12);
+  background: var(--lj-warning-bg);
 }
 
 .lj-segplan__status--completed {
   color: var(--lj-success);
-  background: rgba(16, 185, 129, 0.12);
+  background: var(--lj-success-bg);
 }
 
 .lj-segplan__status--failed,
 .lj-segplan__status--cancelled {
   color: var(--lj-danger);
-  background: rgba(239, 68, 68, 0.12);
+  background: var(--lj-danger-bg);
 }
 
 .lj-segplan__progress {
@@ -90,7 +94,8 @@
 
 .lj-segplan__progress-bar {
   height: 6px;
-  border-radius: 999px;
+  /* 与项目既有进度条（.lj-video-task__bar）一致：半高小圆角，而非胶囊 */
+  border-radius: 3px;
   background: var(--lj-bg-section);
   overflow: hidden;
 }
@@ -98,7 +103,7 @@
 .lj-segplan__progress-bar span {
   display: block;
   height: 100%;
-  border-radius: 999px;
+  border-radius: inherit;
   background: var(--lj-primary);
   transition: width 0.3s ease;
 }
@@ -117,13 +122,13 @@
 
 .lj-segplan__segment {
   padding: 12px;
-  border: 1px solid var(--lj-border-soft);
+  border: 1px solid var(--lj-border);
   border-radius: var(--lj-radius-md);
   background: var(--lj-bg-soft);
 }
 
 .lj-segplan__segment--success {
-  border-color: rgba(16, 185, 129, 0.3);
+  border-color: var(--lj-success-border);
 }
 
 .lj-segplan__segment--active {
@@ -131,7 +136,7 @@
 }
 
 .lj-segplan__segment--error {
-  border-color: rgba(239, 68, 68, 0.3);
+  border-color: var(--lj-danger-border);
 }
 
 .lj-segplan__segment-head {
@@ -219,12 +224,13 @@
   margin-top: 14px;
   padding: 10px 12px;
   border-radius: var(--lj-radius-sm);
-  background: rgba(16, 185, 129, 0.1);
+  background: var(--lj-success-bg);
   color: var(--lj-success);
   font-size: 13px;
 }
 
-@media (max-width: 640px) {
+/* 断点与项目一致（767px） */
+@media (max-width: 767px) {
   .lj-segplan {
     padding: 12px;
   }
