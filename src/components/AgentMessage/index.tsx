@@ -543,6 +543,8 @@ interface VideoGenerationMetadata {
   kind: 'video_generation_submitted' | 'video_generation_result'
   taskId: string
   scriptId?: number
+  /** 分段任务的计划 ID：非空表示该卡片只由分段面板展示（聊天流里隐藏） */
+  planId?: number | null
   status: VideoTaskItem['status']
   generatedVideoUrl?: string
   errorMessage?: string
