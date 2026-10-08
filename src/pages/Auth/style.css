@@ -366,6 +366,19 @@
     color: inherit
 }
 
+.auth-filing__sep {
+    margin: 0 6px;
+    opacity: .6
+}
+
+.auth-filing__icon {
+    width: 11px;
+    height: 11px;
+    display: inline-block;
+    vertical-align: -1px;
+    margin-right: 3px
+}
+
 /* ---------- 旧 workspace 样式（保留兼容，不再使用） ---------- */
 .auth-preview-row {
     display: none;

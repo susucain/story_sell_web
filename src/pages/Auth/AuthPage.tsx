@@ -52,7 +52,7 @@ export function AuthPage({ mode }: AuthPageProps) {
         <Button type="primary" htmlType="submit" loading={submitting} block>{isRegister ? '创建账号' : '登录'}</Button>
       </Form>
       <p className="auth-agreement">{isRegister ? '创建账号' : '登录'}即代表你同意服务协议和隐私政策</p>
-      <p className="auth-filing"><a href="https://beian.miit.gov.cn" target="_blank" rel="noreferrer">浙ICP备2026082524号-1</a></p>
+      <p className="auth-filing"><a href="https://beian.miit.gov.cn" target="_blank" rel="noreferrer">浙ICP备2026082524号-1</a><span className="auth-filing__sep">|</span><a href="https://beian.mps.gov.cn/#/query/webSearch?code=33011002020766" rel="noreferrer" target="_blank"><img className="auth-filing__icon" src="/beian-icon.png" alt="" aria-hidden="true" />浙公网安备33011002020766号</a></p>
     </div></section>
   </main>
 }
