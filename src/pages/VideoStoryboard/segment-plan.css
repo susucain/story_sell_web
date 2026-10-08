@@ -186,14 +186,7 @@
   word-break: break-word;
 }
 
-.lj-segplan__video {
-  display: block;
-  width: 100%;
-  max-height: 320px;
-  margin-top: 10px;
-  border-radius: var(--lj-radius-sm);
-  background: #000;
-}
+/* 各段成片已回到聊天流（任务卡）展示，面板只保留计划级信息与控制，避免同一段结果双份出现 */
 
 .lj-segplan__confirm {
   display: flex;
@@ -224,6 +217,7 @@
 
 .lj-segplan__footer {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   margin-top: 14px;
@@ -232,6 +226,11 @@
   background: var(--lj-success-bg);
   color: var(--lj-success);
   font-size: 13px;
+}
+
+/* 续写入口靠右，窄屏换行后不挤压提示文案 */
+.lj-segplan__continue-last {
+  margin-left: auto;
 }
 
 /* 断点与项目一致（767px） */

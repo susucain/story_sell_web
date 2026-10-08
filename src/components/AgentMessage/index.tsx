@@ -587,6 +587,9 @@ function VideoGenerationMessageCard({
   const isSucceeded = status === 'succeeded' && Boolean(videoUrl)
   const isPending = status === 'queued' || status === 'running' || status === 'persisting'
   const isFailed = !isSucceeded && !isPending
+  // 分段任务的续写入口由分段面板统一收口（确认下一段时会带上衔接方式），
+  // 卡片上再放一个「基于此视频续写」会与面板的确认门控冲突，故只在该卡片隐藏。
+  const inSegmentPlan = typeof task?.planId === 'number'
   const title = isSucceeded
     ? '视频已生成'
     : status === 'persisting'
@@ -613,12 +616,14 @@ function VideoGenerationMessageCard({
             >
               引用视频修改
             </Button>
-            <Button
-              onClick={() => onContinueVideo?.(task)}
-              className="lj-btn-ghost"
-            >
-              基于此视频续写
-            </Button>
+            {!inSegmentPlan && (
+              <Button
+                onClick={() => onContinueVideo?.(task)}
+                className="lj-btn-ghost"
+              >
+                基于此视频续写
+              </Button>
+            )}
             <a href={videoUrl} download target="_blank" rel="noreferrer">
               <Button type="primary" icon={<DownloadOutlined />} className="lj-btn-primary">下载</Button>
             </a>

@@ -1121,6 +1121,16 @@ export default function VideoStoryboard() {
     if (attached) setContinueTask(null)
   }, [attachVideoReference, continueDraftMode, continueTask])
 
+  /** 计划完成后由面板发起：基于最后一段继续续写，复用卡片续写链路 */
+  const handleContinueLastSegment = useCallback((taskId: string) => {
+    const target = videos.find((video) => video.taskId === taskId)
+    if (!target) {
+      antdMessage.error('未找到该段的视频任务')
+      return
+    }
+    handleContinueVideo(target)
+  }, [handleContinueVideo, videos])
+
   function handleClearGeneration() {
     setGenerationScriptId(undefined)
     setPrompt('')
@@ -1177,13 +1187,7 @@ export default function VideoStoryboard() {
 
   // ===== 定位聊天中的视频消息 =====
   const handleSelectVideo = useCallback((task: VideoTaskItem) => {
-    // 分段任务卡已从聊天流隐藏，改为定位到分段面板
-    if (typeof task.planId === 'number') {
-      document
-        .querySelector<HTMLElement>('.lj-segplan')
-        ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      return
-    }
+    // 分段卡与普通任务卡统一按 taskId 定位到聊天流中的对应消息
     setFocusedVideoTaskId(task.taskId)
   }, [])
 
@@ -1261,14 +1265,6 @@ export default function VideoStoryboard() {
   const visibleMessages = useMemo(() => {
     return messages.filter((msg) => {
       if (msg.role === 'user') return true
-      // 分段任务的视频卡只在分段面板展示，聊天流里隐藏，避免同一段结果重复出现
-      const meta = msg.metadata as { kind?: string; planId?: number | null } | undefined
-      if (
-        (meta?.kind === 'video_generation_submitted' || meta?.kind === 'video_generation_result')
-        && typeof meta.planId === 'number'
-      ) {
-        return false
-      }
       return msg.parts.some((p) => {
         const type = p.type
         if (type === 'data-process-step' || type === 'data-process-complete' || type === 'step-start') {
@@ -1440,6 +1436,7 @@ export default function VideoStoryboard() {
                   onConfirmNext={handleConfirmNextSegment}
                   onRegenerate={handleRegenerateSegment}
                   onCancel={handleCancelPlan}
+                  onContinueLast={handleContinueLastSegment}
                 />
               )}
 

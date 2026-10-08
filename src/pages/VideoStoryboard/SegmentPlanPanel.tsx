@@ -26,6 +26,8 @@ interface SegmentPlanPanelProps {
   onConfirmNext: (mode: VideoContinuityMode) => void
   onRegenerate: (segmentIndex: number, mode: VideoContinuityMode) => void
   onCancel: () => void
+  /** 计划完成后，基于最后一段继续续写（走普通生成链路，卡片上的续写入口已隐藏） */
+  onContinueLast: (taskId: string) => void
 }
 
 type SegmentState = 'done' | 'active' | 'failed' | 'pending'
@@ -86,6 +88,7 @@ export function SegmentPlanPanel({
   onConfirmNext,
   onRegenerate,
   onCancel,
+  onContinueLast,
 }: SegmentPlanPanelProps) {
   const [mode, setMode] = useState<VideoContinuityMode>('extend')
   // 收起只是折叠面板本身，计划仍完整保留（数据来自计划接口，与消息表无关）
@@ -101,6 +104,15 @@ export function SegmentPlanPanel({
   const progress = plan.totalSegments > 0
     ? Math.round((plan.completedSegments / plan.totalSegments) * 100)
     : 0
+  // 计划完成后卡片上的续写入口已隐藏，这里给出唯一的「接着最后一段继续」出口
+  const lastTask = findTask(plan.tasks, plan.totalSegments)
+  const continueLastTaskId = (
+    plan.status === 'completed'
+    && lastTask?.status === 'succeeded'
+    && lastTask.generatedVideoUrl
+  )
+    ? lastTask.taskId
+    : null
 
   return (
     <section className={`lj-segplan lj-segplan--${plan.status}${collapsed ? ' is-collapsed' : ''}`}>
@@ -158,7 +170,6 @@ export function SegmentPlanPanel({
           const task = findTask(plan.tasks, segment.index)
           const state = resolveState(task)
           const meta = stateMeta(state)
-          const isBoundary = awaitingConfirm && segment.index === plan.completedSegments
           return (
             <article key={segment.index} className={`lj-segplan__segment lj-segplan__segment--${meta.tone}`}>
               <div className="lj-segplan__segment-head">
@@ -181,44 +192,6 @@ export function SegmentPlanPanel({
               {task?.errorMessage && state === 'failed' && (
                 <div className="lj-segplan__segment-body lj-segplan__segment-body--error">
                   {task.errorMessage}
-                </div>
-              )}
-
-              {state === 'done' && task?.generatedVideoUrl && (
-                <video
-                  className="lj-segplan__video"
-                  src={task.generatedVideoUrl}
-                  poster={task.lastFrameUrl ?? undefined}
-                  controls
-                  preload="metadata"
-                />
-              )}
-
-              {isBoundary && (
-                <div className="lj-segplan__confirm">
-                  <div className="lj-segplan__confirm-label">选择下一段的衔接方式</div>
-                  <Radio.Group
-                    className="lj-segplan__mode"
-                    value={mode}
-                    onChange={(event) => setMode(event.target.value as VideoContinuityMode)}
-                    disabled={busy}
-                  >
-                    {CONTINUITY_OPTIONS.map((option) => (
-                      <Radio key={option.value} value={option.value}>
-                        <Tooltip title={option.hint}>{option.label}</Tooltip>
-                      </Radio>
-                    ))}
-                  </Radio.Group>
-                  <Button
-                    type="primary"
-                    className="lj-btn-primary"
-                    icon={<PlayCircleOutlined />}
-                    loading={pending}
-                    disabled={busy}
-                    onClick={() => onConfirmNext(mode)}
-                  >
-                    确认，继续下一段
-                  </Button>
                 </div>
               )}
 
@@ -259,9 +232,50 @@ export function SegmentPlanPanel({
         })}
       </div>
 
+      {awaitingConfirm && (
+        <div className="lj-segplan__confirm">
+          <div className="lj-segplan__confirm-label">
+            第 {plan.completedSegments} 段已生成，选择下一段的衔接方式
+          </div>
+          <Radio.Group
+            className="lj-segplan__mode"
+            value={mode}
+            onChange={(event) => setMode(event.target.value as VideoContinuityMode)}
+            disabled={busy}
+          >
+            {CONTINUITY_OPTIONS.map((option) => (
+              <Radio key={option.value} value={option.value}>
+                <Tooltip title={option.hint}>{option.label}</Tooltip>
+              </Radio>
+            ))}
+          </Radio.Group>
+          <Button
+            type="primary"
+            className="lj-btn-primary"
+            icon={<PlayCircleOutlined />}
+            loading={pending}
+            disabled={busy}
+            onClick={() => onConfirmNext(mode)}
+          >
+            确认，继续下一段
+          </Button>
+        </div>
+      )}
+
       {plan.status === 'completed' && (
         <footer className="lj-segplan__footer">
           <CheckCircleFilled /> 全部 {plan.totalSegments} 段已生成。本期不自动拼接，请分别下载各段后自行剪辑。
+          {continueLastTaskId && (
+            <Button
+              size="small"
+              className="lj-btn-ghost lj-segplan__continue-last"
+              icon={<PlayCircleOutlined />}
+              disabled={busy}
+              onClick={() => onContinueLast(continueLastTaskId)}
+            >
+              基于最后一段继续续写
+            </Button>
+          )}
         </footer>
       )}
     </section>
