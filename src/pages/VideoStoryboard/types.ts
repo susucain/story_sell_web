@@ -184,6 +184,15 @@ export interface GenerationPlanSegment {
   shots: GenerationPlanShot[]
 }
 
+/** 聊天流中某个分段视频预览所需的段级上下文 */
+export interface SegmentPreviewContext {
+  index: number
+  totalSegments: number
+  startSec: number
+  endSec: number
+  shots: GenerationPlanShot[]
+}
+
 /** 计划中单段对应的任务状态 */
 export interface GenerationPlanTask {
   taskId: string

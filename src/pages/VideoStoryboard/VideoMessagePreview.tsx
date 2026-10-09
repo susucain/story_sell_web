@@ -1,12 +1,14 @@
 import { useRef, useState } from 'react'
 import { AudioOutlined, ClockCircleOutlined, MobileOutlined, PlayCircleFilled, PlayCircleOutlined } from '@ant-design/icons'
-import type { ParsedStoryboard, StoryboardShot, VideoTaskItem } from './types'
+import type { ParsedStoryboard, SegmentPreviewContext, StoryboardShot, VideoTaskItem } from './types'
 import './video-message-preview.css'
 import { MetaTag } from './ScriptCard'
+import { getPreviewShots, getPreviewTitle } from './segment-preview'
 
 interface VideoMessagePreviewProps {
   videoTask: VideoTaskItem
   parsed: ParsedStoryboard | null
+  segmentContext?: SegmentPreviewContext | null
 }
 
 function getShotRange(shot: StoryboardShot): { start: number; end: number } | null {
@@ -25,11 +27,15 @@ function formatDuration(duration: number | null): string {
   return `${minutes}:${String(seconds).padStart(2, '0')}`
 }
 
-export function VideoMessagePreview({ videoTask, parsed }: VideoMessagePreviewProps) {
+export function VideoMessagePreview({
+  videoTask,
+  parsed,
+  segmentContext = null,
+}: VideoMessagePreviewProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [currentTime, setCurrentTime] = useState(0)
   const [selectedShot, setSelectedShot] = useState<number | null>(null)
-  const shots = parsed?.shots ?? []
+  const shots = getPreviewShots(parsed, segmentContext)
 
   function handleShotClick(shot: StoryboardShot) {
     const range = getShotRange(shot)
@@ -53,7 +59,9 @@ export function VideoMessagePreview({ videoTask, parsed }: VideoMessagePreviewPr
         <div className="lj-script-card__version">
           视频预览
         </div>
-        <h3 className="video-message-preview__title">{parsed?.title ?? '视频预览'}</h3>
+        <h3 className="video-message-preview__title">
+          {getPreviewTitle(parsed?.title, segmentContext)}
+        </h3>
         <div className="lj-script-card__meta">
           <MetaTag icon={<MobileOutlined />}>脚本 V{parsed?.version ?? 'X'}</MetaTag>
           <MetaTag icon={<ClockCircleOutlined />}>

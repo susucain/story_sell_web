@@ -22,8 +22,17 @@ import { Button, Image } from 'antd'
 import { StreamdownText } from '../StreamdownText'
 import { ScriptCard } from '../../pages/VideoStoryboard/ScriptCard'
 import { VideoMessagePreview } from '../../pages/VideoStoryboard/VideoMessagePreview'
-import type { ScriptVersion, AssetItem, VideoTaskItem } from '../../pages/VideoStoryboard/types'
+import type {
+  AssetItem,
+  ScriptVersion,
+  VideoGenerationPlan,
+  VideoTaskItem,
+} from '../../pages/VideoStoryboard/types'
 import { toParsedStoryboard } from '../../pages/VideoStoryboard/types'
+import {
+  isSupersededSegmentTask,
+  resolveSegmentPreviewContext,
+} from '../../pages/VideoStoryboard/segment-preview'
 import type { ProcessPhase, ProcessState, ProcessStatePart } from './process-types'
 import {
   collectPhaseRationales,
@@ -570,6 +579,7 @@ function VideoGenerationMessageCard({
   metadata,
   task,
   script,
+  segmentPlan,
   onReferenceVideo,
   onContinueVideo,
   isFocused,
@@ -577,10 +587,12 @@ function VideoGenerationMessageCard({
   metadata: VideoGenerationMetadata
   task?: VideoTaskItem
   script?: ScriptVersion
+  segmentPlan?: VideoGenerationPlan
   onReferenceVideo?: (task: VideoTaskItem) => void
   onContinueVideo?: (task: VideoTaskItem) => void
   isFocused?: boolean
 }) {
+  if (isSupersededSegmentTask(task, segmentPlan)) return null
   const status = task?.status ?? metadata.status
   const videoUrl = task?.generatedVideoUrl ?? metadata.generatedVideoUrl
   const errorMessage = task?.errorMessage ?? metadata.errorMessage
@@ -590,6 +602,9 @@ function VideoGenerationMessageCard({
   // 分段任务的续写入口由分段面板统一收口（确认下一段时会带上衔接方式），
   // 卡片上再放一个「基于此视频续写」会与面板的确认门控冲突，故只在该卡片隐藏。
   const inSegmentPlan = typeof task?.planId === 'number'
+  const segmentContext = task
+    ? resolveSegmentPreviewContext(task, segmentPlan)
+    : null
   const title = isSucceeded
     ? '视频已生成'
     : status === 'persisting'
@@ -608,6 +623,7 @@ function VideoGenerationMessageCard({
           <VideoMessagePreview
             videoTask={task}
             parsed={script ? toParsedStoryboard(script) : null}
+            segmentContext={segmentContext}
           />
           <div className="video-generation-card__actions">
             <Button
@@ -675,6 +691,8 @@ export interface AgentMessageProps {
   generating?: boolean
   /** 当前会话视频任务，用于从任务消息解析最新状态 */
   videos?: VideoTaskItem[]
+  /** 当前会话分段计划，用于把段级任务投影为段级预览 */
+  generationPlans?: VideoGenerationPlan[]
   /** 将已生成视频作为下一次生成的参考素材 */
   onReferenceVideo?: (task: VideoTaskItem) => void
   /** 基于已生成视频续写后续剧情 */
@@ -694,6 +712,7 @@ export const AgentMessage = memo(function AgentMessage({
   onGenerateVideo,
   generating = false,
   videos = [],
+  generationPlans = [],
   onReferenceVideo,
   onContinueVideo,
   focusedVideoTaskId,
@@ -739,6 +758,9 @@ export const AgentMessage = memo(function AgentMessage({
     const script = scriptId
       ? scripts.find((item) => item.id === scriptId)
       : undefined
+    const segmentPlan = typeof task?.planId === 'number'
+      ? generationPlans.find((plan) => plan.planId === task.planId)
+      : undefined
     return (
       <div className="storyboard-row storyboard-row--assistant">
         <div className="storyboard-avatar storyboard-avatar--assistant"></div>
@@ -747,6 +769,7 @@ export const AgentMessage = memo(function AgentMessage({
             metadata={videoMetadata}
             task={task}
             script={script}
+            segmentPlan={segmentPlan}
             onReferenceVideo={onReferenceVideo}
             onContinueVideo={onContinueVideo}
             isFocused={focusedVideoTaskId === videoMetadata.taskId}
@@ -869,6 +892,7 @@ export const AgentMessage = memo(function AgentMessage({
   if (prev.assets !== next.assets) return false
   if (prev.generating !== next.generating) return false
   if (prev.videos !== next.videos) return false
+  if (prev.generationPlans !== next.generationPlans) return false
   if (prev.onReferenceVideo !== next.onReferenceVideo) return false
   if (prev.onContinueVideo !== next.onContinueVideo) return false
   if (!next.isStreaming) return true

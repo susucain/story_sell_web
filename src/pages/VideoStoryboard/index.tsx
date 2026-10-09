@@ -26,7 +26,15 @@ import {
 import { AgentMessage } from '../../components/AgentMessage'
 import { RightPanel } from './RightPanel'
 import { SessionPanel } from './SessionPanel'
-import type { SessionSummary, AssetItem, ScriptVersion, VideoTaskItem, ParsedStoryboard, VideoContinuityMode } from './types'
+import type {
+  SessionSummary,
+  AssetItem,
+  ScriptVersion,
+  VideoTaskItem,
+  ParsedStoryboard,
+  VideoContinuityMode,
+  VideoGenerationPlan,
+} from './types'
 import { toParsedStoryboard, shouldUseSegmentedGeneration } from './types'
 import {
   fetchHistory,
@@ -36,6 +44,7 @@ import {
   updateAssetPurpose,
   fetchScripts,
   generateVideo,
+  fetchGenerationPlan,
   fetchVideoTasksBySession,
   subscribeTaskStatus,
   cancelChatRun,
@@ -266,6 +275,7 @@ export default function VideoStoryboard() {
   const [focusedVideoTaskId, setFocusedVideoTaskId] = useState<string>()
   const [focusedScriptId, setFocusedScriptId] = useState<number>()
   const [videos, setVideos] = useState<VideoTaskItem[]>([])
+  const [segmentPlansById, setSegmentPlansById] = useState<Record<number, VideoGenerationPlan>>({})
   const [generating, setGenerating] = useState(false)
   const [assets, setAssets] = useState<AssetItem[]>([])
   const [scripts, setScripts] = useState<ScriptVersion[]>([])
@@ -385,6 +395,36 @@ export default function VideoStoryboard() {
     loadVideos(controller.signal)
     return () => controller.abort()
   }, [sessionId, sessionValidated, loadAssets, loadScripts, loadVideos])
+
+  const segmentPlanIds = useMemo(
+    () => Array.from(new Set(
+      videos
+        .filter((video) => video.sessionId === sessionId)
+        .map((video) => video.planId)
+        .filter((planId): planId is number => typeof planId === 'number'),
+    )),
+    [sessionId, videos],
+  )
+
+  useEffect(() => {
+    if (!isSessionResourceLoadReady(sessionValidated) || segmentPlanIds.length === 0) {
+      return
+    }
+
+    let disposed = false
+    Promise.all(segmentPlanIds.map(async (planId) => [planId, await fetchGenerationPlan(planId)] as const))
+      .then((plans) => {
+        if (disposed) return
+        setSegmentPlansById(Object.fromEntries(plans))
+      })
+      .catch((error) => {
+        if (!disposed) reportError('video.segment-plans.load', error)
+      })
+
+    return () => {
+      disposed = true
+    }
+  }, [segmentPlanIds, sessionValidated])
 
   const activeVideoTaskIds = useMemo(
     () =>
@@ -713,6 +753,14 @@ export default function VideoStoryboard() {
   const latestStoryboard: ParsedStoryboard | null = useMemo(() => {
     return latestScript ? toParsedStoryboard(latestScript) : null
   }, [latestScript])
+
+  const generationPlans = useMemo(() => {
+    const plans = new Map<number, VideoGenerationPlan>(
+      Object.values(segmentPlansById).map((plan) => [plan.planId, plan]),
+    )
+    if (generationPlan) plans.set(generationPlan.planId, generationPlan)
+    return Array.from(plans.values())
+  }, [generationPlan, segmentPlansById])
 
   const referencedScript = useMemo(
     () => scripts.find((script) => script.id === referencedScriptId) ?? null,
@@ -1420,6 +1468,7 @@ export default function VideoStoryboard() {
                       onGenerateVideo={handleGenerateVideo}
                       generating={generating}
                       videos={videos}
+                      generationPlans={generationPlans}
                       onReferenceVideo={handleReferenceVideo}
                       onContinueVideo={handleContinueVideo}
                       focusedVideoTaskId={focusedVideoTaskId}
