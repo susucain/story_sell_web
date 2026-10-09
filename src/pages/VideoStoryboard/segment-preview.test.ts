@@ -93,6 +93,13 @@ describe('segment preview', () => {
     expect(getPreviewShots(parsed, null)).toEqual(parsed.shots)
   })
 
+  it('replaces a legacy segment suffix instead of appending a second one', () => {
+    const context = resolveSegmentPreviewContext(task, plan)
+
+    expect(getPreviewTitle('布偶猫桃花笑拟人舞 Part 1 (0–30s)', context))
+      .toBe('布偶猫桃花笑拟人舞 Part 2 (15-30s)')
+  })
+
   it('hides a cancelled task after a regenerated task replaces it', () => {
     const cancelledTask = { ...task, taskId: 'old-segment-2-task', status: 'cancelled' as const }
     const regeneratedPlan = {

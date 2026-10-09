@@ -11,6 +11,15 @@ function formatSecond(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(1)
 }
 
+function stripSegmentSuffix(title: string): string {
+  return title
+    .replace(
+      /(?:\s+Part\s+\d+\s*\(\s*\d+(?:\.\d+)?\s*[-~–—]\s*\d+(?:\.\d+)?\s*s\s*\))+$/i,
+      '',
+    )
+    .trim()
+}
+
 function getShotRange(shot: StoryboardShot): { start: number; end: number } | null {
   const values = shot.time.match(/\d+(?:\.\d+)?/g)
   if (!values || values.length < 2) return null
@@ -72,7 +81,8 @@ export function getPreviewTitle(
   context: SegmentPreviewContext | null,
 ): string {
   if (!context) return title ?? '视频预览'
-  return `${title ?? '视频预览'} Part ${context.index} (${formatSecond(context.startSec)}-${formatSecond(context.endSec)}s)`
+  const baseTitle = stripSegmentSuffix(title ?? '视频预览')
+  return `${baseTitle} Part ${context.index} (${formatSecond(context.startSec)}-${formatSecond(context.endSec)}s)`
 }
 
 export function getPreviewShots(

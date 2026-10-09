@@ -592,7 +592,6 @@ function VideoGenerationMessageCard({
   onContinueVideo?: (task: VideoTaskItem) => void
   isFocused?: boolean
 }) {
-  if (isSupersededSegmentTask(task, segmentPlan)) return null
   const status = task?.status ?? metadata.status
   const videoUrl = task?.generatedVideoUrl ?? metadata.generatedVideoUrl
   const errorMessage = task?.errorMessage ?? metadata.errorMessage
@@ -761,6 +760,7 @@ export const AgentMessage = memo(function AgentMessage({
     const segmentPlan = typeof task?.planId === 'number'
       ? generationPlans.find((plan) => plan.planId === task.planId)
       : undefined
+    if (isSupersededSegmentTask(task, segmentPlan)) return null
     return (
       <div className="storyboard-row storyboard-row--assistant">
         <div className="storyboard-avatar storyboard-avatar--assistant"></div>
