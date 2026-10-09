@@ -654,6 +654,7 @@ export default function VideoStoryboard() {
           requestSessionId,
           currentSessionId: sessionId,
           chatStarted: chatStartedRef.current,
+          requestAborted: controller.signal.aborted,
           disposed,
         })) return
         if (Array.isArray(msgs) && msgs.length > 0) {

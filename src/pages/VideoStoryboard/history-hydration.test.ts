@@ -7,6 +7,7 @@ describe('history hydration guard', () => {
       requestSessionId: 'session-1',
       currentSessionId: 'session-1',
       chatStarted: false,
+      requestAborted: false,
       disposed: false,
     })).toBe(true)
   })
@@ -16,21 +17,31 @@ describe('history hydration guard', () => {
       requestSessionId: 'session-1',
       currentSessionId: 'session-1',
       chatStarted: true,
+      requestAborted: false,
       disposed: false,
     })).toBe(false)
   })
 
-  it('rejects history for a switched session or disposed component', () => {
+  it('rejects history for an aborted request, switched session, or disposed component', () => {
+    expect(shouldApplyHistoryResult({
+      requestSessionId: 'session-1',
+      currentSessionId: 'session-1',
+      chatStarted: false,
+      requestAborted: true,
+      disposed: false,
+    })).toBe(false)
     expect(shouldApplyHistoryResult({
       requestSessionId: 'session-1',
       currentSessionId: 'session-2',
       chatStarted: false,
+      requestAborted: false,
       disposed: false,
     })).toBe(false)
     expect(shouldApplyHistoryResult({
       requestSessionId: 'session-1',
       currentSessionId: 'session-1',
       chatStarted: false,
+      requestAborted: false,
       disposed: true,
     })).toBe(false)
   })
