@@ -121,46 +121,15 @@ export function splitAssistantParts(parts: UIMessage['parts']): AssistantParts {
     return { mainToolParts, subAgentSections, textParts, reasoningParts }
   }
 
-  // 历史消息兼容：本次改动前入库的消息既没有 step 前缀也没有角色元数据，
-  // 沿用旧的「最后一次主 agent 工具调用之后即最终文本」判定，保持渲染不变。
-  const legacyTextParts: AssistantTextPart[] = []
-  let inSubAgent = false
-  let lastToolIdx = -1
-
-  parts.forEach((part, idx) => {
-    if (isToolUIPart(part as any)) {
-      const name = getToolName(part as any)
-      if (name !== 'task' && !inSubAgent) {
-        lastToolIdx = idx
-      }
-    }
-  })
-
-  parts.forEach((part, idx) => {
-    if (part.type !== 'text') return
-
-    if (parts[idx - 1] && isToolUIPart(parts[idx - 1] as any)) {
-      const prevName = getToolName(parts[idx - 1] as any)
-      if (prevName === 'task') {
-        inSubAgent = true
-      }
-    }
-
-    if (parts[idx + 1] && isToolUIPart(parts[idx + 1] as any)) {
-      const nextName = getToolName(parts[idx + 1] as any)
-      if (nextName !== 'task') {
-        inSubAgent = false
-      }
-    }
-
-    if (!inSubAgent && (lastToolIdx === -1 || idx > lastToolIdx)) {
-      legacyTextParts.push({
-        part: part as AssistantTextPart['part'],
-        role: 'answer',
-        stepIndex: null,
-      })
-    }
-  })
+  // 旧流格式没有 step 元数据，无法可靠区分过程旁白和最终答复。此前根据后续
+  // 工具调用回溯删除早期文本，导致工具到达时文本闪现后消失；兼容路径宁可保留。
+  const legacyTextParts = parts
+    .filter((part): part is AssistantTextPart['part'] => part.type === 'text')
+    .map((part) => ({
+      part,
+      role: 'answer' as const,
+      stepIndex: null,
+    }))
 
   return {
     mainToolParts,

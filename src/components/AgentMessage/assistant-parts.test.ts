@@ -41,7 +41,7 @@ describe('splitAssistantParts', () => {
     expect(textParts[0].role).toBe('answer')
   })
 
-  it('keeps the legacy rule for messages stored before step marking', () => {
+  it('keeps all legacy text when step metadata is unavailable', () => {
     const { textParts } = splitAssistantParts(
       message([
         { type: 'text', text: '我需要先调用工具' },
@@ -50,11 +50,14 @@ describe('splitAssistantParts', () => {
       ]).parts,
     )
 
-    expect(textParts.map((item) => item.part.text)).toEqual(['最终答复'])
-    expect(textParts[0].stepIndex).toBeNull()
+    expect(textParts.map((item) => item.part.text)).toEqual([
+      '我需要先调用工具',
+      '最终答复',
+    ])
+    expect(textParts.every((item) => item.stepIndex === null)).toBe(true)
   })
 
-  it('keeps excluding sub-agent text for legacy messages', () => {
+  it('keeps legacy sub-agent text instead of removing it after a later tool call', () => {
     const { textParts } = splitAssistantParts(
       message([
         { type: 'tool-task', state: 'input-available', input: {} },
@@ -64,7 +67,10 @@ describe('splitAssistantParts', () => {
       ]).parts,
     )
 
-    expect(textParts.map((item) => item.part.text)).toEqual(['最终答复'])
+    expect(textParts.map((item) => item.part.text)).toEqual([
+      '子 agent 的文本',
+      '最终答复',
+    ])
   })
 })
 
