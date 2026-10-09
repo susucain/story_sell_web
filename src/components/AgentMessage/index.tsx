@@ -837,12 +837,9 @@ export const AgentMessage = memo(function AgentMessage({
               />
             )}
 
-            {/* 文本输出：按后端下发的 step 角色就地渲染 */}
+            {/* 文本输出：按后端下发的 step 角色就地渲染，过程旁白结束后也保留在气泡中。 */}
             {textParts.map((item, i) => {
               const isInterstitial = item.role === 'interstitial'
-              // 过程旁白：角色元数据晚于文本到达，流式期间先就地弱化展示，避免「出现又消失」；
-              // 本轮结束后再撤走，改由过程条的思考片段展示
-              if (isInterstitial && processState && !isStreaming) return null
               // 非流式时对最终答复尝试自定义渲染（如分镜脚本卡片）
               if (!isInterstitial && !isStreaming && renderFinalText) {
                 const custom = renderFinalText(item.part.text)
